@@ -43,3 +43,8 @@ Sur l’autre appareil :
 - Le site vérifie les mises à jour cloud toutes les 15 secondes et quand tu reviens sur l’onglet.
 - Les boutons Exporter/Importer restent disponibles comme sauvegarde supplémentaire.
 - La Publishable Key peut être présente dans le navigateur. Ne mets jamais une Secret Key ou une Service Role Key dans le site.
+
+
+## Mise à jour sur iPhone
+
+Utilise le bouton **Actualiser** dans l’application. Le site vérifie aussi automatiquement les nouvelles versions quand tu reviens dans l’app.

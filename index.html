@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#111827" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="sporttrack-build" content="1784504341" />
   <title>SportTrack - Suivi de performances</title>
   <style>
     :root{
@@ -122,12 +126,18 @@
     <div class="toolbar">
       <div id="cloudStatus" class="cloud-status"><span class="cloud-dot"></span><span id="cloudStatusText">Connexion…</span></div>
       <div id="userEmail" class="user-email"></div>
+      <button class="btn btn-primary" onclick="forceRefresh()">Actualiser</button>
       <button class="btn btn-secondary" onclick="exportData()">Exporter</button>
       <label class="btn btn-secondary" style="cursor:pointer">Importer<input type="file" id="importFile" accept=".json" hidden></label>
       <button class="btn btn-secondary" onclick="manualCloudSync()">Synchroniser</button>
       <button class="btn btn-danger" onclick="signOut()">Déconnexion</button>
     </div>
   </header>
+
+  <div id="updateBanner" class="notice" style="display:none;margin-bottom:14px">
+    <strong>Nouvelle version disponible.</strong>
+    <button class="btn btn-primary" style="margin-left:10px;padding:7px 10px" onclick="forceRefresh()">Mettre à jour</button>
+  </div>
 
   <nav class="tabs">
     <button class="tab active" data-view="dashboard">Tableau de bord</button>
@@ -385,6 +395,48 @@ function save(){
   renderAll();
   scheduleCloudSave();
 }
+
+
+const SPORTTRACK_BUILD="1784504341";
+let lastUpdateCheck=0;
+
+function forceRefresh(){
+  try{ localStorage.setItem("sportTrackLastManualRefresh",String(Date.now())); }catch(e){}
+  const url=new URL(window.location.href);
+  url.searchParams.set("_refresh",Date.now().toString());
+  window.location.replace(url.toString());
+}
+
+async function checkForSiteUpdate(){
+  const now=Date.now();
+  if(now-lastUpdateCheck<30000) return;
+  lastUpdateCheck=now;
+  try{
+    const url=new URL(window.location.href);
+    url.searchParams.set("_check",now.toString());
+    const response=await fetch(url.toString(),{cache:"no-store"});
+    if(!response.ok) return;
+    const text=await response.text();
+    const match=text.match(/<meta name="sporttrack-build" content="([^"]+)"/);
+    if(match && match[1]!==SPORTTRACK_BUILD){
+      const banner=document.getElementById("updateBanner");
+      if(banner) banner.style.display="block";
+    }
+  }catch(error){
+    console.warn("Update check failed",error);
+  }
+}
+
+window.addEventListener("focus",()=>{
+  checkForSiteUpdate();
+  if(typeof checkCloudForUpdates==="function") checkCloudForUpdates();
+});
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden){
+    checkForSiteUpdate();
+    if(typeof checkCloudForUpdates==="function") checkCloudForUpdates();
+  }
+});
 
 function setCloudStatus(text,state=""){
   const el=document.getElementById("cloudStatus");
@@ -1203,6 +1255,7 @@ renderSessionGuidance();
 window.addEventListener("resize",()=>{if(document.getElementById("dashboard").classList.contains("active")){drawChart();drawCalorieChart()}});
 renderAll();
 initializeCloud();
+setTimeout(checkForSiteUpdate,1500);
 </script>
 </body>
 </html>
