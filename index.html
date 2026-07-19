@@ -112,8 +112,8 @@
         </div>
 
         <div class="card full">
-          <div class="section-title"><h2>Semaine 20</h2><span>9 au 15 juillet 2026</span></div>
-          <div class="notice">Tes 5 séances fournies sont déjà intégrées. Les séries incomplètes sont conservées telles quelles.</div>
+          <div class="section-title"><h2>Semaine 21</h2><span>16 au 19 juillet 2026</span></div>
+          <div class="notice">Tes séances de la semaine 21 sont intégrées. Les séries non renseignées sont conservées telles quelles.</div>
           <div id="weekSummary" class="list" style="margin-top:12px"></div>
         </div>
         <div class="card full">
@@ -290,6 +290,27 @@ const initialData = {
       {name:"Leg extension", weight:140, reps:[11,10,9], note:"Charge à vérifier"},
       {name:"Leg curl allongé", weight:45, reps:[10], note:""},
       {name:"Abdos poulie", weight:35, reps:[20,17], note:""}
+    ]},
+    {date:"2026-07-16", name:"Push", exercises:[
+      {name:"Développé couché haltères", weight:40, reps:[10,10,7], note:"Charge par haltère"},
+      {name:"Pec incliné Smith", weight:27.5, reps:[12,10], note:"Charge par côté"},
+      {name:"Extension poulie barre", weight:25, reps:[16,14,10], note:""},
+      {name:"Élévations latérales", weight:12, reps:[14,12], note:""},
+      {name:"Élévation machine", weight:30, reps:[12,10,10], note:""},
+      {name:"Abdos poulie", weight:35, reps:[20], note:""}
+    ]},
+    {date:"2026-07-18", name:"Pull", exercises:[
+      {name:"Tirage vertical", weight:75, reps:[12,12,10], note:""},
+      {name:"Tirage machine", weight:51.25, reps:[10,9], note:"Charge par côté"},
+      {name:"Oiseau haltères arrière d'épaule", weight:13, reps:[14,12,10], note:"13 puis 12 kg"},
+      {name:"Curl poulie", weight:25, reps:[12,10,10], note:""},
+      {name:"Abdos poulie", weight:30, reps:[], note:"Répétitions non renseignées"}
+    ]},
+    {date:"2026-07-19", name:"Jambes", exercises:[
+      {name:"Presse à jambes", weight:185, reps:[10,10,10], note:""},
+      {name:"Hip thrust", weight:140, reps:[10,8,8], note:""},
+      {name:"Leg extension", weight:95, reps:[12,10], note:""},
+      {name:"Leg curl allongé", weight:45, reps:[10,9,7], note:""}
     ]}
   ]
 };
@@ -297,6 +318,12 @@ let data = JSON.parse(localStorage.getItem("sportTrackData") || "null") || initi
 if(!Array.isArray(data.nutrition)) data.nutrition = JSON.parse(JSON.stringify(initialData.nutrition));
 if(!data.calorieGoal) data.calorieGoal = 2350;
 if(!Array.isArray(data.weights)) data.weights = [];
+
+const suppliedWeek21 = initialData.workouts.filter(w=>["2026-07-16","2026-07-18","2026-07-19"].includes(w.date));
+suppliedWeek21.forEach(session=>{
+  data.workouts=data.workouts.filter(w=>!(w.date===session.date && w.name===session.name));
+  data.workouts.push(JSON.parse(JSON.stringify(session)));
+});
 
 function save(){localStorage.setItem("sportTrackData", JSON.stringify(data));renderAll();}
 function fmtDate(s){return new Date(s+"T12:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}
@@ -376,7 +403,7 @@ function renderRecent(){
 }
 function renderWeek(){
   const names={Push:"Pecs, épaules, triceps",Pull:"Dos, biceps, arrière d’épaules",Jambes:"Bas du corps","Upper Body":"Haut du corps","Lower Body":"Bas du corps"};
-  document.getElementById("weekSummary").innerHTML=data.workouts.map(w=>`<div class="item"><div><strong>${fmtDate(w.date)} · ${w.name}</strong><div class="small">${names[w.name]||""} · ${w.exercises.length} exercices</div></div><span class="badge">${w.exercises.reduce((s,e)=>s+e.reps.length,0)} séries</span></div>`).join("");
+  document.getElementById("weekSummary").innerHTML=data.workouts.filter(w=>w.date>="2026-07-16" && w.date<="2026-07-19").sort((a,b)=>a.date.localeCompare(b.date)).map(w=>`<div class="item"><div><strong>${fmtDate(w.date)} · ${w.name}</strong><div class="small">${names[w.name]||""} · ${w.exercises.length} exercices</div></div><span class="badge">${w.exercises.reduce((s,e)=>s+e.reps.length,0)} séries</span></div>`).join("");
 }
 function renderWeight(){
   const sorted=[...data.weights].sort((a,b)=>b.date.localeCompare(a.date));

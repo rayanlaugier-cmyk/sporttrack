@@ -32,3 +32,5 @@ Ouvre `index.html` dans ton navigateur. Les données sont sauvegardées localeme
 - Affichage de la dernière séance et suggestion de la séance suivante
 - Chargement automatique de tous les exercices de la dernière séance du même type
 - Anciennes charges, répétitions et notes visibles sous chaque exercice
+
+- Semaine 21 ajoutée : Push du 16/07, Pull du 18/07 et Jambes du 19/07
