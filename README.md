@@ -33,4 +33,5 @@ Ouvre `index.html` dans ton navigateur. Les données sont sauvegardées localeme
 - Chargement automatique de tous les exercices de la dernière séance du même type
 - Anciennes charges, répétitions et notes visibles sous chaque exercice
 
-- Semaine 21 ajoutée : Push du 16/07, Pull du 18/07 et Jambes du 19/07
+- Carte Objectif actuel modifiable : Reverse diet, Sèche, Maintien ou Prise de masse
+- Conseils automatiques adaptés à l’objectif sélectionné

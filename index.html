@@ -100,6 +100,12 @@
         <div class="card metric"><div class="label">Poids moyen 7 jours</div><div id="avgWeight" class="value">-</div><div id="weightDelta" class="delta">Ajoute tes pesées</div></div>
         <div class="card metric"><div class="label">Calories moyennes</div><div id="avgCalories" class="value">-</div><div id="calorieDays" class="delta">Aucune donnée</div></div>
         <div class="card metric"><div class="label">Objectif calories</div><div id="calorieGoalDisplay" class="value">2350 kcal</div><div id="weeklyGoalDisplay" class="delta">16 450 kcal sur 7 jours</div><div style="margin-top:10px"><button class="btn btn-secondary" style="padding:7px 10px;font-size:.78rem" onclick="editCalorieGoal()">Modifier</button></div></div>
+        <div class="card metric">
+          <div class="label">Objectif actuel</div>
+          <div id="currentGoalDisplay" class="value" style="font-size:1.35rem">Reverse diet</div>
+          <div id="currentGoalDetail" class="delta">Augmentation progressive après une sèche</div>
+          <div style="margin-top:10px"><button class="btn btn-secondary" style="padding:7px 10px;font-size:.78rem" onclick="editCurrentGoal()">Modifier</button></div>
+        </div>
 
         <div class="card full">
           <div class="section-title"><h2>Évolution du poids</h2><span>Moyenne mobile sur 7 jours</span></div>
@@ -112,8 +118,8 @@
         </div>
 
         <div class="card full">
-          <div class="section-title"><h2>Semaine 21</h2><span>16 au 19 juillet 2026</span></div>
-          <div class="notice">Tes séances de la semaine 21 sont intégrées. Les séries non renseignées sont conservées telles quelles.</div>
+          <div class="section-title"><h2>Semaine 20</h2><span>9 au 15 juillet 2026</span></div>
+          <div class="notice">Tes 5 séances fournies sont déjà intégrées. Les séries incomplètes sont conservées telles quelles.</div>
           <div id="weekSummary" class="list" style="margin-top:12px"></div>
         </div>
         <div class="card full">
@@ -253,6 +259,7 @@
 const initialData = {
   weights: [{"id": "mfp-2026-07-13", "date": "2026-07-13", "value": 67.8, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-14", "date": "2026-07-14", "value": 67.6, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-15", "date": "2026-07-15", "value": 67.7, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-16", "date": "2026-07-16", "value": 67.3, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-17", "date": "2026-07-17", "value": 67.3, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-18", "date": "2026-07-18", "value": 67.3, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-19", "date": "2026-07-19", "value": 67.9, "note": "Import MyFitnessPal"}],
   calorieGoal: 2350,
+  currentGoal: "reverse",
   nutrition: [{"date": "2026-07-12", "calories": 2111.0, "protein": 150.5, "carbs": 243.4, "fat": 78.0}, {"date": "2026-07-13", "calories": 2291.7, "protein": 172.1, "carbs": 291.9, "fat": 64.9}, {"date": "2026-07-14", "calories": 2309.8, "protein": 177.6, "carbs": 277.2, "fat": 67.7}, {"date": "2026-07-15", "calories": 2289.5, "protein": 145.7, "carbs": 299.1, "fat": 61.5}, {"date": "2026-07-16", "calories": 2261.3, "protein": 146.4, "carbs": 280.7, "fat": 71.0}, {"date": "2026-07-17", "calories": 2323.0, "protein": 142.7, "carbs": 293.9, "fat": 71.2}, {"date": "2026-07-18", "calories": 2321.2, "protein": 167.2, "carbs": 277.2, "fat": 65.5}],
   workouts: [
     {date:"2026-07-09", name:"Push", exercises:[
@@ -290,40 +297,14 @@ const initialData = {
       {name:"Leg extension", weight:140, reps:[11,10,9], note:"Charge à vérifier"},
       {name:"Leg curl allongé", weight:45, reps:[10], note:""},
       {name:"Abdos poulie", weight:35, reps:[20,17], note:""}
-    ]},
-    {date:"2026-07-16", name:"Push", exercises:[
-      {name:"Développé couché haltères", weight:40, reps:[10,10,7], note:"Charge par haltère"},
-      {name:"Pec incliné Smith", weight:27.5, reps:[12,10], note:"Charge par côté"},
-      {name:"Extension poulie barre", weight:25, reps:[16,14,10], note:""},
-      {name:"Élévations latérales", weight:12, reps:[14,12], note:""},
-      {name:"Élévation machine", weight:30, reps:[12,10,10], note:""},
-      {name:"Abdos poulie", weight:35, reps:[20], note:""}
-    ]},
-    {date:"2026-07-18", name:"Pull", exercises:[
-      {name:"Tirage vertical", weight:75, reps:[12,12,10], note:""},
-      {name:"Tirage machine", weight:51.25, reps:[10,9], note:"Charge par côté"},
-      {name:"Oiseau haltères arrière d'épaule", weight:13, reps:[14,12,10], note:"13 puis 12 kg"},
-      {name:"Curl poulie", weight:25, reps:[12,10,10], note:""},
-      {name:"Abdos poulie", weight:30, reps:[], note:"Répétitions non renseignées"}
-    ]},
-    {date:"2026-07-19", name:"Jambes", exercises:[
-      {name:"Presse à jambes", weight:185, reps:[10,10,10], note:""},
-      {name:"Hip thrust", weight:140, reps:[10,8,8], note:""},
-      {name:"Leg extension", weight:95, reps:[12,10], note:""},
-      {name:"Leg curl allongé", weight:45, reps:[10,9,7], note:""}
     ]}
   ]
 };
 let data = JSON.parse(localStorage.getItem("sportTrackData") || "null") || initialData;
 if(!Array.isArray(data.nutrition)) data.nutrition = JSON.parse(JSON.stringify(initialData.nutrition));
 if(!data.calorieGoal) data.calorieGoal = 2350;
+if(!data.currentGoal) data.currentGoal = "reverse";
 if(!Array.isArray(data.weights)) data.weights = [];
-
-const suppliedWeek21 = initialData.workouts.filter(w=>["2026-07-16","2026-07-18","2026-07-19"].includes(w.date));
-suppliedWeek21.forEach(session=>{
-  data.workouts=data.workouts.filter(w=>!(w.date===session.date && w.name===session.name));
-  data.workouts.push(JSON.parse(JSON.stringify(session)));
-});
 
 function save(){localStorage.setItem("sportTrackData", JSON.stringify(data));renderAll();}
 function fmtDate(s){return new Date(s+"T12:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}
@@ -355,6 +336,15 @@ function renderMetrics(){
   const goal=Number(data.calorieGoal)||2350;
   document.getElementById("calorieGoalDisplay").textContent=`${Math.round(goal)} kcal`;
   document.getElementById("weeklyGoalDisplay").textContent=`${Math.round(goal*7).toLocaleString("fr-FR")} kcal sur 7 jours`;
+  const goalLabels={
+    reverse:["Reverse diet","Augmentation progressive après une sèche"],
+    cut:["Sèche","Perte de graisse en conservant les performances"],
+    maintain:["Maintien","Stabiliser le poids et les performances"],
+    bulk:["Prise de masse","Augmenter progressivement le poids et la force"]
+  };
+  const current=goalLabels[data.currentGoal]||goalLabels.reverse;
+  document.getElementById("currentGoalDisplay").textContent=current[0];
+  document.getElementById("currentGoalDetail").textContent=current[1];
   if(avgCal){
     const diff=Math.round(avgCal-goal);
     document.getElementById("calorieDays").textContent += ` · ${diff>=0?"+":""}${diff} kcal vs objectif`;
@@ -403,7 +393,7 @@ function renderRecent(){
 }
 function renderWeek(){
   const names={Push:"Pecs, épaules, triceps",Pull:"Dos, biceps, arrière d’épaules",Jambes:"Bas du corps","Upper Body":"Haut du corps","Lower Body":"Bas du corps"};
-  document.getElementById("weekSummary").innerHTML=data.workouts.filter(w=>w.date>="2026-07-16" && w.date<="2026-07-19").sort((a,b)=>a.date.localeCompare(b.date)).map(w=>`<div class="item"><div><strong>${fmtDate(w.date)} · ${w.name}</strong><div class="small">${names[w.name]||""} · ${w.exercises.length} exercices</div></div><span class="badge">${w.exercises.reduce((s,e)=>s+e.reps.length,0)} séries</span></div>`).join("");
+  document.getElementById("weekSummary").innerHTML=data.workouts.map(w=>`<div class="item"><div><strong>${fmtDate(w.date)} · ${w.name}</strong><div class="small">${names[w.name]||""} · ${w.exercises.length} exercices</div></div><span class="badge">${w.exercises.reduce((s,e)=>s+e.reps.length,0)} séries</span></div>`).join("");
 }
 function renderWeight(){
   const sorted=[...data.weights].sort((a,b)=>b.date.localeCompare(a.date));
@@ -564,19 +554,51 @@ function renderAutomaticReport(){
   }
 
   let advice="Continue à renseigner tes données régulièrement pour obtenir une tendance plus fiable.";
+  const currentGoal=data.currentGoal||"reverse";
+
   if(currentWeightAvg!==null && calorieAvg!==null){
-    if(previousWeightAvg===null){
-      advice=`Conserve ton objectif de ${goal} kcal jusqu’à disposer d’au moins deux semaines complètes de poids moyen.`;
-    }else if(Math.abs(weightChange)<0.15 && improved>=declined){
-      advice=`Ton poids est stable et tes performances tiennent bien. Garde environ ${goal} kcal pendant encore une semaine avant de modifier quoi que ce soit.`;
-    }else if(weightChange<-0.5 && declined>improved){
-      advice="La perte de poids est rapide et plusieurs performances reculent. Une petite hausse de 100 à 150 kcal pourrait aider la récupération.";
-    }else if(weightChange>0.5 && calorieDiff>100){
-      advice="Le poids et les calories montent en même temps. Si ton objectif est de rester sec, réduis légèrement l’apport ou vérifie d’abord si la hausse vient de la rétention d’eau.";
-    }else if(weightChange<0 && improved>=declined){
-      advice="Tu perds du poids tout en maintenant ou améliorant les performances. Ne baisse pas davantage les calories pour le moment.";
-    }else if(declined>improved){
-      advice="Plusieurs performances reculent. Surveille le sommeil, la fatigue, la proximité de l’échec et envisage une séance plus légère si cela continue.";
+    if(currentGoal==="reverse"){
+      if(previousWeightAvg===null){
+        advice=`Tu es en reverse diet. Garde ${goal} kcal jusqu’à obtenir au moins deux semaines complètes de poids moyen avant d’augmenter.`;
+      }else if(weightChange<-0.15 && improved>=declined){
+        advice=`Ton poids baisse encore malgré ${Math.round(calorieAvg)} kcal et tes performances tiennent. Tu peux envisager une hausse prudente de 50 à 100 kcal.`;
+      }else if(Math.abs(weightChange)<0.2 && improved>=declined){
+        advice=`Ton poids est stable et tes performances restent bonnes. En reverse diet, une hausse de 50 à 100 kcal peut être envisagée si cette stabilité dure au moins une semaine complète.`;
+      }else if(weightChange>0.4){
+        advice=`Ton poids monte rapidement. En reverse diet, conserve les calories actuelles une semaine de plus avant toute nouvelle hausse pour vérifier qu’il ne s’agit pas surtout de rétention d’eau.`;
+      }else if(declined>improved){
+        advice=`Plusieurs performances reculent. Avant d’augmenter les calories, vérifie le sommeil, la fatigue et la récupération. Une hausse de 50 à 100 kcal peut aider si la fatigue persiste.`;
+      }else{
+        advice=`La reverse diet semble bien contrôlée. Continue à augmenter lentement, par paliers de 50 à 100 kcal, uniquement lorsque le poids reste stable et que les performances suivent.`;
+      }
+    }else if(currentGoal==="cut"){
+      if(weightChange<-0.2 && improved>=declined){
+        advice="Tu perds du poids tout en maintenant ou améliorant les performances. Garde les calories actuelles.";
+      }else if(Math.abs(weightChange)<0.15){
+        advice="Le poids est stable. Si cela dure deux semaines et que tu veux continuer la sèche, baisse légèrement de 100 à 150 kcal.";
+      }else if(weightChange>0.3){
+        advice="Le poids remonte. Vérifie d’abord la rétention d’eau, puis ajuste les calories si la tendance se confirme.";
+      }else{
+        advice="Continue la sèche sans changer brutalement les calories et surveille surtout la moyenne hebdomadaire.";
+      }
+    }else if(currentGoal==="maintain"){
+      if(Math.abs(weightChange)<0.2){
+        advice="Ton poids est stable, ce qui correspond bien à un maintien. Garde les calories actuelles.";
+      }else if(weightChange>0.3){
+        advice="Le poids monte au-dessus de l’objectif de maintien. Réduis légèrement de 100 kcal si la tendance se confirme.";
+      }else{
+        advice="Le poids baisse en maintien. Ajoute environ 100 kcal si cela continue.";
+      }
+    }else if(currentGoal==="bulk"){
+      if(weightChange>0 && weightChange<0.35 && improved>=declined){
+        advice="La prise de masse progresse à un rythme contrôlé et les performances suivent. Garde les calories actuelles.";
+      }else if(weightChange<=0){
+        advice="Le poids ne monte pas. Ajoute environ 100 à 150 kcal si la tendance dure une semaine complète.";
+      }else if(weightChange>0.5){
+        advice="La prise de poids est rapide. Garde les calories ou réduis légèrement pour limiter la prise de graisse.";
+      }else{
+        advice="Continue à surveiller le poids moyen et la progression sur les exercices principaux.";
+      }
     }
   }
 
@@ -809,6 +831,35 @@ document.getElementById("weightCsvFile").onchange=e=>{
 };
 function deleteNutrition(date){data.nutrition=data.nutrition.filter(n=>n.date!==date);save()}
 
+
+
+function editCurrentGoal(){
+  const options={
+    "1":"reverse",
+    "2":"cut",
+    "3":"maintain",
+    "4":"bulk"
+  };
+  const labels={
+    reverse:"Reverse diet",
+    cut:"Sèche",
+    maintain:"Maintien",
+    bulk:"Prise de masse"
+  };
+  const choice=prompt(
+    "Choisis ton objectif actuel :\n1 - Reverse diet\n2 - Sèche\n3 - Maintien\n4 - Prise de masse",
+    Object.keys(options).find(k=>options[k]===data.currentGoal)||"1"
+  );
+  if(choice===null) return;
+  const selected=options[String(choice).trim()];
+  if(!selected){
+    alert("Choisis 1, 2, 3 ou 4.");
+    return;
+  }
+  data.currentGoal=selected;
+  save();
+  alert(`Objectif mis à jour : ${labels[selected]}`);
+}
 
 function editCalorieGoal(){
   const current=Number(data.calorieGoal)||2350;
