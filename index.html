@@ -68,11 +68,42 @@
     .status-watch{background:rgba(245,158,11,.13);color:#fcd34d}
     .status-info{background:rgba(56,189,248,.13);color:#7dd3fc}
 
+
+    .cloud-status{display:flex;align-items:center;gap:7px;font-size:.78rem;color:var(--muted);padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#0f172a}
+    .cloud-dot{width:8px;height:8px;border-radius:50%;background:#f59e0b}
+    .cloud-status.online .cloud-dot{background:#22c55e}
+    .cloud-status.error .cloud-dot{background:#ef4444}
+    .auth-overlay{position:fixed;inset:0;z-index:9999;background:rgba(4,8,18,.96);display:grid;place-items:center;padding:18px}
+    .auth-overlay.hidden{display:none}
+    .auth-card{width:min(430px,100%);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:var(--shadow)}
+    .auth-card h2{margin:0 0 6px;font-size:1.45rem}
+    .auth-card p{margin:0 0 20px;color:var(--muted);line-height:1.5}
+    .auth-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+    .auth-message{min-height:22px;margin-top:12px;font-size:.85rem;color:#fca5a5}
+    .user-email{font-size:.78rem;color:var(--muted);max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
     @media(max-width:850px){.metric{grid-column:span 6}.wide,.side{grid-column:1/-1}.app{padding:14px}.form-grid{grid-template-columns:1fr}}
     @media(max-width:520px){.metric{grid-column:1/-1}.grid{gap:12px}.card{padding:15px}header{align-items:flex-start;flex-direction:column}.toolbar{width:100%}.toolbar .btn{flex:1}}
   </style>
 </head>
 <body>
+
+<div id="authOverlay" class="auth-overlay">
+  <div class="auth-card">
+    <div class="brand" style="margin-bottom:18px">
+      <div class="logo">ST</div>
+      <div><h2>SportTrack Cloud</h2><div class="subtitle">Ton suivi personnel, sauvegardé et synchronisé</div></div>
+    </div>
+    <p>Connecte-toi avec le même compte sur ton iPhone et ton PC pour retrouver automatiquement tes données.</p>
+    <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email" placeholder="ton@email.com"></div>
+    <div class="field" style="margin-top:10px"><label>Mot de passe</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="6 caractères minimum"></div>
+    <div class="auth-actions">
+      <button class="btn btn-primary" onclick="signIn()">Se connecter</button>
+      <button class="btn btn-secondary" onclick="signUp()">Créer le compte</button>
+    </div>
+    <div id="authMessage" class="auth-message"></div>
+  </div>
+</div>
 <div class="app">
   <header>
     <div class="brand">
@@ -80,9 +111,12 @@
       <div><h1>SportTrack</h1><div class="subtitle">Poids, performances et progression</div></div>
     </div>
     <div class="toolbar">
+      <div id="cloudStatus" class="cloud-status"><span class="cloud-dot"></span><span id="cloudStatusText">Connexion…</span></div>
+      <div id="userEmail" class="user-email"></div>
       <button class="btn btn-secondary" onclick="exportData()">Exporter</button>
       <label class="btn btn-secondary" style="cursor:pointer">Importer<input type="file" id="importFile" accept=".json" hidden></label>
-      <button class="btn btn-danger" onclick="resetData()">Réinitialiser</button>
+      <button class="btn btn-secondary" onclick="manualCloudSync()">Synchroniser</button>
+      <button class="btn btn-danger" onclick="signOut()">Déconnexion</button>
     </div>
   </header>
 
@@ -255,6 +289,7 @@
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const initialData = {
   weights: [{"id": "mfp-2026-07-13", "date": "2026-07-13", "value": 67.8, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-14", "date": "2026-07-14", "value": 67.6, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-15", "date": "2026-07-15", "value": 67.7, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-16", "date": "2026-07-16", "value": 67.3, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-17", "date": "2026-07-17", "value": 67.3, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-18", "date": "2026-07-18", "value": 67.3, "note": "Import MyFitnessPal"}, {"id": "mfp-2026-07-19", "date": "2026-07-19", "value": 67.9, "note": "Import MyFitnessPal"}],
@@ -306,19 +341,179 @@ if(!data.calorieGoal) data.calorieGoal = 2350;
 if(!data.currentGoal) data.currentGoal = "reverse";
 if(!Array.isArray(data.weights)) data.weights = [];
 
-const week21Seed = [{"date": "2026-07-16", "name": "Push", "exercises": [{"name": "Développé couché haltères", "weight": 40, "reps": [10, 10, 7], "note": "Charge par haltère"}, {"name": "Pec incliné Smith", "weight": 27.5, "reps": [12, 10], "note": "Charge par côté"}, {"name": "Extension poulie barre", "weight": 25, "reps": [16, 14, 10], "note": ""}, {"name": "Élévations latérales", "weight": 12, "reps": [14, 12], "note": ""}, {"name": "Élévation machine", "weight": 30, "reps": [12, 10, 10], "note": ""}, {"name": "Abdos poulie", "weight": 35, "reps": [20], "note": ""}]}, {"date": "2026-07-18", "name": "Pull", "exercises": [{"name": "Tirage vertical", "weight": 75, "reps": [12, 12, 10], "note": ""}, {"name": "Tirage machine", "weight": 51.25, "reps": [10, 9], "note": "Charge par côté"}, {"name": "Oiseau haltères arrière d'épaule", "weight": 13, "reps": [14, 12, 10], "note": "13 puis 12 kg"}, {"name": "Curl poulie", "weight": 25, "reps": [12, 10, 10], "note": ""}, {"name": "Abdos poulie", "weight": 30, "reps": [], "note": "Répétitions non renseignées"}]}, {"date": "2026-07-19", "name": "Jambes", "exercises": [{"name": "Presse à jambes", "weight": 185, "reps": [10, 10, 10], "note": ""}, {"name": "Hip thrust", "weight": 140, "reps": [10, 8, 8], "note": ""}, {"name": "Leg extension", "weight": 95, "reps": [12, 10], "note": ""}, {"name": "Leg curl allongé", "weight": 45, "reps": [10, 9, 7], "note": ""}]}];
-week21Seed.forEach(seedWorkout => {
-  const existingIndex = data.workouts.findIndex(w => w.date === seedWorkout.date && w.name === seedWorkout.name);
-  if(existingIndex >= 0) {
-    data.workouts[existingIndex] = JSON.parse(JSON.stringify(seedWorkout));
-  } else {
-    data.workouts.push(JSON.parse(JSON.stringify(seedWorkout)));
+const SUPABASE_URL = "https://ducwcwcuzwngqzblhwko.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_OPuccONU5ovI08RYlvkwxg_sZhqQh6L";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+let currentUser = null;
+let cloudSaveTimer = null;
+let cloudLoading = false;
+let lastCloudUpdatedAt = null;
+
+
+
+
+function save(){
+  localStorage.setItem("sportTrackData", JSON.stringify(data));
+  renderAll();
+  scheduleCloudSave();
+}
+
+function setCloudStatus(text,state=""){
+  const el=document.getElementById("cloudStatus");
+  const txt=document.getElementById("cloudStatusText");
+  if(!el||!txt) return;
+  el.className=`cloud-status ${state}`.trim();
+  txt.textContent=text;
+}
+function showAuth(message=""){
+  document.getElementById("authOverlay")?.classList.remove("hidden");
+  const msg=document.getElementById("authMessage");
+  if(msg) msg.textContent=message;
+}
+function hideAuth(){
+  document.getElementById("authOverlay")?.classList.add("hidden");
+}
+async function signUp(){
+  const email=document.getElementById("authEmail").value.trim();
+  const password=document.getElementById("authPassword").value;
+  const msg=document.getElementById("authMessage");
+  if(!email||password.length<6){msg.textContent="Entre un email valide et un mot de passe d’au moins 6 caractères.";return;}
+  msg.textContent="Création du compte…";
+  const {data:authData,error}=await supabaseClient.auth.signUp({email,password});
+  if(error){msg.textContent=error.message;return;}
+  if(authData.session){
+    msg.textContent="";
+    await handleAuthenticatedUser(authData.user);
+  }else{
+    msg.style.color="#86efac";
+    msg.textContent="Compte créé. Vérifie ton email si Supabase demande une confirmation, puis connecte-toi.";
   }
-});
-localStorage.setItem("sportTrackData", JSON.stringify(data));
+}
+async function signIn(){
+  const email=document.getElementById("authEmail").value.trim();
+  const password=document.getElementById("authPassword").value;
+  const msg=document.getElementById("authMessage");
+  if(!email||!password){msg.textContent="Entre ton email et ton mot de passe.";return;}
+  msg.textContent="Connexion…";
+  const {data:authData,error}=await supabaseClient.auth.signInWithPassword({email,password});
+  if(error){msg.textContent=error.message;return;}
+  msg.textContent="";
+  await handleAuthenticatedUser(authData.user);
+}
+async function signOut(){
+  await flushCloudSave();
+  await supabaseClient.auth.signOut();
+  currentUser=null;
+  showAuth();
+  setCloudStatus("Déconnecté","error");
+}
+async function handleAuthenticatedUser(user){
+  currentUser=user;
+  document.getElementById("userEmail").textContent=user?.email||"";
+  hideAuth();
+  setCloudStatus("Chargement cloud…");
+  await loadCloudData();
+}
+async function loadCloudData(){
+  if(!currentUser||cloudLoading) return;
+  cloudLoading=true;
+  try{
+    const {data:row,error}=await supabaseClient
+      .from("sporttrack_data")
+      .select("data,updated_at")
+      .eq("user_id",currentUser.id)
+      .maybeSingle();
+    if(error) throw error;
+    if(row?.data){
+      data=row.data;
+      if(!Array.isArray(data.weights)) data.weights=[];
+      if(!Array.isArray(data.nutrition)) data.nutrition=[];
+      if(!Array.isArray(data.workouts)) data.workouts=[];
+      if(!data.calorieGoal) data.calorieGoal=2350;
+      if(!data.currentGoal) data.currentGoal="reverse";
+      lastCloudUpdatedAt=row.updated_at||null;
+      localStorage.setItem("sportTrackData",JSON.stringify(data));
+      renderAll();
+      setCloudStatus("Synchronisé","online");
+    }else{
+      await saveCloudData(true);
+    }
+  }catch(error){
+    console.error("Cloud load error",error);
+    setCloudStatus("Erreur cloud","error");
+    alert("La connexion Supabase fonctionne, mais la table n’est peut-être pas encore créée. Exécute le fichier supabase-setup.sql dans SQL Editor.");
+  }finally{
+    cloudLoading=false;
+  }
+}
+function scheduleCloudSave(){
+  if(!currentUser) return;
+  setCloudStatus("Sauvegarde…");
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer=setTimeout(()=>saveCloudData(false),700);
+}
+async function flushCloudSave(){
+  if(!currentUser) return;
+  clearTimeout(cloudSaveTimer);
+  await saveCloudData(false);
+}
+async function saveCloudData(force=false){
+  if(!currentUser) return;
+  try{
+    const updatedAt=new Date().toISOString();
+    const {error}=await supabaseClient
+      .from("sporttrack_data")
+      .upsert({user_id:currentUser.id,data,updated_at:updatedAt},{onConflict:"user_id"});
+    if(error) throw error;
+    lastCloudUpdatedAt=updatedAt;
+    setCloudStatus("Sauvegardé","online");
+  }catch(error){
+    console.error("Cloud save error",error);
+    setCloudStatus("Non sauvegardé","error");
+  }
+}
+async function manualCloudSync(){
+  if(!currentUser){showAuth("Connecte-toi pour synchroniser.");return;}
+  setCloudStatus("Synchronisation…");
+  await loadCloudData();
+}
+async function checkCloudForUpdates(){
+  if(!currentUser||document.hidden||cloudLoading) return;
+  try{
+    const {data:row,error}=await supabaseClient
+      .from("sporttrack_data")
+      .select("data,updated_at")
+      .eq("user_id",currentUser.id)
+      .maybeSingle();
+    if(error||!row?.data) return;
+    if(!lastCloudUpdatedAt||new Date(row.updated_at)>new Date(lastCloudUpdatedAt)){
+      data=row.data;
+      lastCloudUpdatedAt=row.updated_at;
+      localStorage.setItem("sportTrackData",JSON.stringify(data));
+      renderAll();
+      setCloudStatus("Mis à jour","online");
+    }
+  }catch(error){console.warn(error);}
+}
+async function initializeCloud(){
+  setCloudStatus("Connexion…");
+  const {data:sessionData}=await supabaseClient.auth.getSession();
+  const user=sessionData?.session?.user;
+  if(user){
+    await handleAuthenticatedUser(user);
+  }else{
+    showAuth();
+    setCloudStatus("Connexion requise");
+  }
+  supabaseClient.auth.onAuthStateChange(async(event,session)=>{
+    if(event==="SIGNED_IN"&&session?.user&&!currentUser) await handleAuthenticatedUser(session.user);
+    if(event==="SIGNED_OUT"){currentUser=null;showAuth();setCloudStatus("Déconnecté","error");}
+  });
+  setInterval(checkCloudForUpdates,15000);
+  window.addEventListener("focus",checkCloudForUpdates);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkCloudForUpdates();});
+}
 
-
-function save(){localStorage.setItem("sportTrackData", JSON.stringify(data));renderAll();}
 function fmtDate(s){return new Date(s+"T12:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}
 function mean(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null}
 function movingAvg(index){
@@ -886,7 +1081,7 @@ function editCalorieGoal(){
   save();
 }
 
-function resetData(){if(confirm("Réinitialiser toutes les données ?")){data=JSON.parse(JSON.stringify(initialData));save()}}
+function resetData(){if(confirm("Réinitialiser toutes les données sur cet appareil ET dans le cloud ?")){data=JSON.parse(JSON.stringify(initialData));save()}}
 weightDate.value=new Date().toISOString().slice(0,10);
 nutritionDate.value=new Date().toISOString().slice(0,10);
 const sessionDateInput=document.getElementById("sessionDate");
@@ -899,6 +1094,7 @@ if(sessionTypeInput){
 renderSessionGuidance();
 window.addEventListener("resize",()=>{if(document.getElementById("dashboard").classList.contains("active")){drawChart();drawCalorieChart()}});
 renderAll();
+initializeCloud();
 </script>
 </body>
 </html>
