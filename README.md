@@ -2,21 +2,18 @@
 
 Application web personnelle de suivi sportif.
 
+## Nouveautés
+
+- Import du CSV « aliments consommés » de MyFitnessPal
+- Calcul automatique des calories moyennes
+- Import du CSV « mesures » de MyFitnessPal
+- Calcul du poids moyen sur 7 jours
+- Graphique quotidien des calories
+- Historique des macronutriments
+- Tes données du 12 au 19 juillet 2026 sont déjà intégrées
+
 ## Utilisation
 
-1. Ouvrez `index.html` dans Safari, Chrome ou Edge.
-2. Vos données sont sauvegardées automatiquement dans le navigateur.
-3. Utilisez le bouton **Exporter** pour créer une sauvegarde JSON.
-4. Sur iPhone, ouvrez le site dans Safari puis utilisez **Ajouter à l’écran d’accueil**.
+Ouvre `index.html` dans ton navigateur. Les données sont sauvegardées localement. Utilise régulièrement **Exporter** pour garder une sauvegarde JSON.
 
-## Fonctions incluses
-
-- Tableau de bord
-- Suivi du poids
-- Moyenne mobile sur 7 jours
-- Historique des séances
-- Ajout d’exercices et de performances
-- Export et import des données
-- Données de la semaine 20 déjà intégrées
-
-Aucune connexion internet n’est nécessaire.
+- Affichage automatique de la performance précédente pendant la saisie d’un exercice
