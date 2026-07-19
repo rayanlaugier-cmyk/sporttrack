@@ -69,6 +69,15 @@
     .status-info{background:rgba(56,189,248,.13);color:#7dd3fc}
 
 
+
+    .chart-range-card{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+    .range-buttons{display:flex;gap:8px;flex-wrap:wrap}
+    .range-btn{border:1px solid var(--line);background:#0f172a;color:var(--muted);padding:9px 13px;border-radius:10px;cursor:pointer;font-weight:700}
+    .range-btn.active{background:var(--accent);border-color:var(--accent);color:#04110a}
+    .custom-range{display:none;align-items:end;gap:9px;flex-wrap:wrap}
+    .custom-range.visible{display:flex}
+    .custom-range .field{min-width:150px}
+
     .cloud-status{display:flex;align-items:center;gap:7px;font-size:.78rem;color:var(--muted);padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#0f172a}
     .cloud-dot{width:8px;height:8px;border-radius:50%;background:#f59e0b}
     .cloud-status.online .cloud-dot{background:#22c55e}
@@ -139,6 +148,24 @@
           <div id="currentGoalDisplay" class="value" style="font-size:1.35rem">Reverse diet</div>
           <div id="currentGoalDetail" class="delta">Augmentation progressive après une sèche</div>
           <div style="margin-top:10px"><button class="btn btn-secondary" style="padding:7px 10px;font-size:.78rem" onclick="editCurrentGoal()">Modifier</button></div>
+        </div>
+
+        <div class="card full chart-range-card">
+          <div>
+            <strong>Période des graphiques</strong>
+            <div class="small" id="chartRangeSummary">14 derniers jours</div>
+          </div>
+          <div class="range-buttons">
+            <button class="range-btn active" id="range14" onclick="setChartRange('14')">14 jours</button>
+            <button class="range-btn" id="range30" onclick="setChartRange('30')">30 jours</button>
+            <button class="range-btn" id="range90" onclick="setChartRange('90')">3 mois</button>
+            <button class="range-btn" id="rangeCustom" onclick="setChartRange('custom')">Personnalisé</button>
+          </div>
+          <div id="customRangeFields" class="custom-range">
+            <div class="field"><label>Du</label><input id="chartStartDate" type="date"></div>
+            <div class="field"><label>Au</label><input id="chartEndDate" type="date"></div>
+            <button class="btn btn-primary" onclick="applyCustomChartRange()">Appliquer</button>
+          </div>
         </div>
 
         <div class="card full">
@@ -557,41 +584,115 @@ function renderMetrics(){
     document.getElementById("calorieDays").textContent += ` · ${diff>=0?"+":""}${diff} kcal vs objectif`;
   }
 }
+
+let chartRangeMode=localStorage.getItem("sportTrackChartRange")||"14";
+let chartCustomStart=localStorage.getItem("sportTrackChartStart")||"";
+let chartCustomEnd=localStorage.getItem("sportTrackChartEnd")||"";
+
+function getLatestChartDate(){
+  const dates=[
+    ...data.weights.map(x=>x.date),
+    ...data.nutrition.map(x=>x.date)
+  ].filter(Boolean).sort();
+  return dates.length?dates[dates.length-1]:new Date().toISOString().slice(0,10);
+}
+function dateToLocal(dateString){return new Date(dateString+"T12:00:00")}
+function toDateInput(date){return date.toISOString().slice(0,10)}
+function getChartBounds(){
+  const latest=getLatestChartDate();
+  let end=chartRangeMode==="custom"&&chartCustomEnd?chartCustomEnd:latest;
+  let start;
+  if(chartRangeMode==="custom"&&chartCustomStart){
+    start=chartCustomStart;
+  }else{
+    const days=chartRangeMode==="90"?90:chartRangeMode==="30"?30:14;
+    const d=dateToLocal(end);d.setDate(d.getDate()-(days-1));start=toDateInput(d);
+  }
+  if(start>end)[start,end]=[end,start];
+  return {start,end};
+}
+function filterChartData(items){
+  const {start,end}=getChartBounds();
+  return [...items].filter(x=>x.date>=start&&x.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
+}
+function updateRangeControls(){
+  document.querySelectorAll(".range-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById(chartRangeMode==="custom"?"rangeCustom":`range${chartRangeMode}`)?.classList.add("active");
+  document.getElementById("customRangeFields")?.classList.toggle("visible",chartRangeMode==="custom");
+  const {start,end}=getChartBounds();
+  const startInput=document.getElementById("chartStartDate"),endInput=document.getElementById("chartEndDate");
+  if(startInput) startInput.value=chartCustomStart||start;
+  if(endInput) endInput.value=chartCustomEnd||end;
+  const summary=document.getElementById("chartRangeSummary");
+  if(summary){
+    if(chartRangeMode==="custom"){
+      summary.textContent=`Du ${new Date(start+"T12:00:00").toLocaleDateString("fr-FR")} au ${new Date(end+"T12:00:00").toLocaleDateString("fr-FR")}`;
+    }else{
+      summary.textContent=chartRangeMode==="90"?"3 derniers mois":`${chartRangeMode} derniers jours`;
+    }
+  }
+}
+function setChartRange(mode){
+  chartRangeMode=mode;
+  localStorage.setItem("sportTrackChartRange",mode);
+  if(mode==="custom"&&!chartCustomStart){
+    const bounds=getChartBounds();
+    chartCustomStart=bounds.start;chartCustomEnd=bounds.end;
+  }
+  updateRangeControls();drawChart();drawCalorieChart();
+}
+function applyCustomChartRange(){
+  const start=document.getElementById("chartStartDate").value;
+  const end=document.getElementById("chartEndDate").value;
+  if(!start||!end){alert("Choisis une date de début et une date de fin.");return;}
+  if(start>end){alert("La date de début doit être antérieure à la date de fin.");return;}
+  chartCustomStart=start;chartCustomEnd=end;chartRangeMode="custom";
+  localStorage.setItem("sportTrackChartRange","custom");
+  localStorage.setItem("sportTrackChartStart",start);
+  localStorage.setItem("sportTrackChartEnd",end);
+  updateRangeControls();drawChart();drawCalorieChart();
+}
+function chartMovingAverage(date){
+  const cur=dateToLocal(date);
+  const vals=[...data.weights]
+    .filter(w=>{const d=dateToLocal(w.date);return d<=cur&&(cur-d)<=6*86400000})
+    .map(w=>Number(w.value));
+  return mean(vals);
+}
+
 function drawChart(){
-  const c=document.getElementById("weightChart"),ctx=c.getContext("2d"),dpr=window.devicePixelRatio||1;
+  const c=document.getElementById("weightChart");if(!c)return;
+  const ctx=c.getContext("2d"),dpr=window.devicePixelRatio||1;
   const cssW=c.clientWidth,cssH=320;c.width=cssW*dpr;c.height=cssH*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,cssW,cssH);
-  const pts=[...data.weights].sort((a,b)=>a.date.localeCompare(b.date));
+  const pts=filterChartData(data.weights);
   ctx.font="12px system-ui";ctx.fillStyle="#94a3b8";
-  if(pts.length<2){ctx.textAlign="center";ctx.fillText("Ajoute plusieurs pesées pour afficher la courbe",cssW/2,cssH/2);return}
-  const vals=pts.map(x=>x.value), min=Math.min(...vals)-0.35,max=Math.max(...vals)+0.35;
-  const padL=54,padR=30,padT=42,padB=62;
+  if(pts.length<2){ctx.textAlign="center";ctx.fillText(pts.length?"Une seule pesée sur cette période":"Aucune pesée sur cette période",cssW/2,cssH/2);return}
+  const vals=pts.map(x=>Number(x.value)),min=Math.min(...vals)-0.35,max=Math.max(...vals)+0.35;
+  const padL=58,padR=30,padT=42,padB=62;
   ctx.strokeStyle="#25314f";ctx.lineWidth=1;
   for(let i=0;i<5;i++){
-    let y=padT+i*(cssH-padT-padB)/4;
+    const y=padT+i*(cssH-padT-padB)/4;
     ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(cssW-padR,y);ctx.stroke();
-    const val=max-i*(max-min)/4;
-    ctx.fillStyle="#94a3b8";ctx.textAlign="right";ctx.fillText(val.toFixed(1)+" kg",padL-8,y+4);
+    const val=max-i*(max-min)/4;ctx.fillStyle="#94a3b8";ctx.textAlign="right";ctx.fillText(val.toFixed(1)+" kg",padL-8,y+4);
   }
-  const xy=(i,v)=>[
-    padL+i*(cssW-padL-padR)/(pts.length-1),
-    padT+(max-v)*(cssH-padT-padB)/(max-min)
-  ];
+  const xy=(i,v)=>[padL+i*(cssW-padL-padR)/(pts.length-1),padT+(max-v)*(cssH-padT-padB)/(max-min)];
   ctx.strokeStyle="#38bdf8";ctx.lineWidth=2.5;ctx.beginPath();
-  pts.forEach((p,i)=>{const [x,y]=xy(i,p.value);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
-
+  pts.forEach((p,i)=>{const [x,y]=xy(i,Number(p.value));i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
   ctx.strokeStyle="#22c55e";ctx.lineWidth=2.5;ctx.beginPath();
-  pts.forEach((p,i)=>{const [x,y]=xy(i,movingAvg(i));i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+  pts.forEach((p,i)=>{const [x,y]=xy(i,chartMovingAverage(p.date));i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
 
+  const labelStep=Math.max(1,Math.ceil(pts.length/12));
+  const valueStep=Math.max(1,Math.ceil(pts.length/20));
   pts.forEach((p,i)=>{
-    const [x,y]=xy(i,p.value);
-    ctx.fillStyle="#f8fafc";ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
-
-    ctx.fillStyle="#f8fafc";ctx.textAlign="center";ctx.font="600 12px system-ui";
-    ctx.fillText(`${p.value.toFixed(1)} kg`,x,y-12);
-
-    ctx.fillStyle="#94a3b8";ctx.font="11px system-ui";
-    const dateLabel=new Date(p.date+"T12:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
-    ctx.fillText(dateLabel,x,cssH-28);
+    const [x,y]=xy(i,Number(p.value));
+    ctx.fillStyle="#f8fafc";ctx.beginPath();ctx.arc(x,y,pts.length>45?2.5:4,0,Math.PI*2);ctx.fill();
+    if(i%valueStep===0||i===pts.length-1){
+      ctx.fillStyle="#f8fafc";ctx.textAlign="center";ctx.font="600 11px system-ui";ctx.fillText(`${Number(p.value).toFixed(1)} kg`,x,y-11);
+    }
+    if(i%labelStep===0||i===pts.length-1){
+      ctx.fillStyle="#94a3b8";ctx.font="11px system-ui";
+      ctx.fillText(dateToLocal(p.date).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"}),x,cssH-28);
+    }
   });
 }
 function renderRecent(){
@@ -620,28 +721,34 @@ function renderWorkouts(){
 }
 
 function drawCalorieChart(){
-  const c=document.getElementById("calorieChart"); if(!c) return;
-  const ctx=c.getContext("2d"),dpr=window.devicePixelRatio||1,cssW=c.clientWidth,cssH=280;
+  const c=document.getElementById("calorieChart");if(!c)return;
+  const ctx=c.getContext("2d"),dpr=window.devicePixelRatio||1,cssW=c.clientWidth,cssH=300;
   c.width=cssW*dpr;c.height=cssH*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,cssW,cssH);
-  const pts=[...data.nutrition].sort((a,b)=>a.date.localeCompare(b.date)).slice(-14);
+  const pts=filterChartData(data.nutrition);
   ctx.font="12px system-ui";ctx.fillStyle="#94a3b8";
-  if(!pts.length){ctx.textAlign="center";ctx.fillText("Importe ton CSV MyFitnessPal pour afficher les calories",cssW/2,cssH/2);return}
-  const pad=42,max=Math.max(2600,...pts.map(x=>x.calories))+150,min=Math.min(1800,...pts.map(x=>x.calories))-100;
+  if(!pts.length){ctx.textAlign="center";ctx.fillText("Aucune donnée calorique sur cette période",cssW/2,cssH/2);return}
+  const values=pts.map(x=>Number(x.calories));
+  const max=Math.max(2600,...values)+150,min=Math.max(0,Math.min(1800,...values)-100);
+  const padL=48,padR=30,padT=42,padB=58;
   ctx.strokeStyle="#25314f";ctx.lineWidth=1;
-  for(let i=0;i<5;i++){let y=pad+i*(cssH-2*pad)/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(cssW-pad,y);ctx.stroke()}
-  const barW=Math.max(12,(cssW-2*pad)/(pts.length*1.7));
+  for(let i=0;i<5;i++){const y=padT+i*(cssH-padT-padB)/4;ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(cssW-padR,y);ctx.stroke()}
+  const slot=(cssW-padL-padR)/pts.length;
+  const barW=Math.max(2,Math.min(74,slot*.62));
+  const labelStep=Math.max(1,Math.ceil(pts.length/12));
+  const valueStep=Math.max(1,Math.ceil(pts.length/20));
   pts.forEach((p,i)=>{
-    const x=pad+(i+.5)*(cssW-2*pad)/pts.length;
-    const y=pad+(max-p.calories)*(cssH-2*pad)/(max-min);
-    const base=cssH-pad;
+    const x=padL+(i+.5)*slot,y=padT+(max-Number(p.calories))*(cssH-padT-padB)/(max-min),base=cssH-padB;
     ctx.fillStyle="#22c55e";ctx.fillRect(x-barW/2,y,barW,base-y);
-    ctx.fillStyle="#cbd5e1";ctx.textAlign="center";ctx.fillText(Math.round(p.calories),x,y-7);
-    ctx.fillStyle="#94a3b8";ctx.fillText(new Date(p.date+"T12:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"}),x,cssH-17);
+    if(i%valueStep===0||i===pts.length-1){
+      ctx.fillStyle="#cbd5e1";ctx.textAlign="center";ctx.font="11px system-ui";ctx.fillText(Math.round(p.calories),x,y-7);
+    }
+    if(i%labelStep===0||i===pts.length-1){
+      ctx.fillStyle="#94a3b8";ctx.fillText(dateToLocal(p.date).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"}),x,cssH-22);
+    }
   });
-  const av=mean(pts.map(p=>p.calories));
-  const ay=pad+(max-av)*(cssH-2*pad)/(max-min);
-  ctx.strokeStyle="#38bdf8";ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(pad,ay);ctx.lineTo(cssW-pad,ay);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle="#38bdf8";ctx.textAlign="left";ctx.fillText(`Moyenne : ${Math.round(av)} kcal`,pad,ay-8);
+  const av=mean(values),ay=padT+(max-av)*(cssH-padT-padB)/(max-min);
+  ctx.strokeStyle="#38bdf8";ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(padL,ay);ctx.lineTo(cssW-padR,ay);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle="#38bdf8";ctx.textAlign="left";ctx.fillText(`Moyenne : ${Math.round(av)} kcal`,padL,Math.max(15,ay-8));
 }
 function renderNutrition(){
   const sorted=[...data.nutrition].sort((a,b)=>b.date.localeCompare(a.date));
