@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111827" />
+  <title>SportTrack - Suivi de performances</title>
+  <style>
+    :root{
+      --bg:#0b1020;--panel:#121a2e;--panel2:#17213a;--text:#f8fafc;--muted:#94a3b8;
+      --accent:#22c55e;--accent2:#38bdf8;--danger:#ef4444;--warning:#f59e0b;--line:#25314f;
+      --shadow:0 18px 40px rgba(0,0,0,.28);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#080d19,#0b1020 25%,#0f172a);color:var(--text);min-height:100vh}
+    button,input,select,textarea{font:inherit}
+    .app{max-width:1180px;margin:0 auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+    .brand{display:flex;align-items:center;gap:12px}.logo{width:46px;height:46px;border-radius:15px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-size:22px;font-weight:800;color:#04110a;box-shadow:var(--shadow)}
+    h1{margin:0;font-size:1.35rem}.subtitle{color:var(--muted);font-size:.9rem;margin-top:2px}
+    .tabs{display:flex;gap:8px;overflow:auto;padding-bottom:4px;margin-bottom:18px}.tab{border:1px solid var(--line);background:#111827;color:var(--muted);padding:10px 14px;border-radius:12px;cursor:pointer;white-space:nowrap}.tab.active{background:var(--accent);color:#04110a;border-color:transparent;font-weight:700}
+    .view{display:none}.view.active{display:block}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .card{background:rgba(18,26,46,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+    .metric{grid-column:span 3}.metric .label{color:var(--muted);font-size:.85rem}.metric .value{font-size:1.9rem;font-weight:800;margin:6px 0}.metric .delta{font-size:.82rem;color:var(--accent)}
+    .wide{grid-column:span 8}.side{grid-column:span 4}.full{grid-column:1/-1}
+    .section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.section-title h2{font-size:1rem;margin:0}.section-title span{font-size:.8rem;color:var(--muted)}
+    canvas{width:100%;height:280px;background:linear-gradient(180deg,rgba(56,189,248,.05),transparent);border-radius:12px}
+    .list{display:flex;flex-direction:column;gap:10px}.item{display:flex;justify-content:space-between;gap:12px;padding:12px;background:var(--panel2);border-radius:12px;border:1px solid transparent}.item:hover{border-color:#334155}
+    .item strong{display:block}.small{font-size:.82rem;color:var(--muted)}
+    .badge{padding:4px 8px;border-radius:999px;background:rgba(34,197,94,.12);color:#86efac;font-size:.75rem;height:max-content}
+    .btn{border:0;border-radius:11px;padding:10px 14px;cursor:pointer;font-weight:700}.btn-primary{background:var(--accent);color:#04110a}.btn-secondary{background:#24304f;color:var(--text)}.btn-danger{background:rgba(239,68,68,.15);color:#fca5a5}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:.82rem;color:var(--muted)}input,select,textarea{background:#0f172a;border:1px solid var(--line);color:var(--text);padding:11px 12px;border-radius:10px;outline:none}input:focus,select:focus,textarea:focus{border-color:var(--accent2)}
+    table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}tr:last-child td{border-bottom:0}
+    .workout-card{margin-bottom:14px}.workout-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.workout-head h3{margin:0;font-size:1rem}.exercise{margin-top:12px;padding:12px;border-radius:12px;background:#0f172a}.exercise-top{display:flex;justify-content:space-between;gap:8px}.sets{color:#cbd5e1;margin-top:5px}
+    .empty{padding:30px;text-align:center;color:var(--muted)}
+    .progress{height:8px;background:#0f172a;border-radius:999px;overflow:hidden;margin-top:8px}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    .notice{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);padding:12px;border-radius:12px;color:#bae6fd;font-size:.88rem}
+    @media(max-width:850px){.metric{grid-column:span 6}.wide,.side{grid-column:1/-1}.app{padding:14px}.form-grid{grid-template-columns:1fr}}
+    @media(max-width:520px){.metric{grid-column:1/-1}.grid{gap:12px}.card{padding:15px}header{align-items:flex-start;flex-direction:column}.toolbar{width:100%}.toolbar .btn{flex:1}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">ST</div>
+      <div><h1>SportTrack</h1><div class="subtitle">Poids, performances et progression</div></div>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-secondary" onclick="exportData()">Exporter</button>
+      <label class="btn btn-secondary" style="cursor:pointer">Importer<input type="file" id="importFile" accept=".json" hidden></label>
+      <button class="btn btn-danger" onclick="resetData()">Réinitialiser</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="dashboard">Tableau de bord</button>
+    <button class="tab" data-view="weight">Poids</button>
+    <button class="tab" data-view="workouts">Séances</button>
+    <button class="tab" data-view="add">Ajouter</button>
+  </nav>
+
+  <main>
+    <section id="dashboard" class="view active">
+      <div class="grid">
+        <div class="card metric"><div class="label">Poids moyen 7 jours</div><div id="avgWeight" class="value">-</div><div id="weightDelta" class="delta">Ajoute tes pesées</div></div>
+        <div class="card metric"><div class="label">Séances enregistrées</div><div id="sessionCount" class="value">0</div><div class="delta">Semaine actuelle</div></div>
+        <div class="card metric"><div class="label">Meilleure performance</div><div id="bestLift" class="value" style="font-size:1.25rem">-</div><div id="bestLiftDetail" class="delta">-</div></div>
+        <div class="card metric"><div class="label">Séries renseignées</div><div id="setCount" class="value">0</div><div class="delta">Total enregistré</div></div>
+
+        <div class="card wide">
+          <div class="section-title"><h2>Évolution du poids</h2><span>Moyenne mobile sur 7 jours</span></div>
+          <canvas id="weightChart" width="800" height="280"></canvas>
+        </div>
+        <div class="card side">
+          <div class="section-title"><h2>Dernières performances</h2><span>Records récents</span></div>
+          <div id="recentPrs" class="list"></div>
+        </div>
+
+        <div class="card full">
+          <div class="section-title"><h2>Semaine 20</h2><span>9 au 15 juillet 2026</span></div>
+          <div class="notice">Tes 5 séances fournies sont déjà intégrées. Les séries incomplètes sont conservées telles quelles.</div>
+          <div id="weekSummary" class="list" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="weight" class="view">
+      <div class="grid">
+        <div class="card side">
+          <div class="section-title"><h2>Ajouter une pesée</h2></div>
+          <form id="weightForm" class="form-grid">
+            <div class="field"><label>Date</label><input id="weightDate" type="date" required></div>
+            <div class="field"><label>Poids (kg)</label><input id="weightValue" type="number" min="30" max="250" step="0.1" required></div>
+            <div class="field full"><label>Note</label><input id="weightNote" type="text" placeholder="Restaurant, repas salé, mauvaise nuit..."></div>
+            <button class="btn btn-primary full" type="submit">Ajouter la pesée</button>
+          </form>
+        </div>
+        <div class="card wide">
+          <div class="section-title"><h2>Historique du poids</h2><span id="weightCount">0 entrées</span></div>
+          <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Poids</th><th>Moyenne 7 j</th><th>Note</th><th></th></tr></thead><tbody id="weightTable"></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="workouts" class="view">
+      <div class="card">
+        <div class="section-title"><h2>Toutes les séances</h2><span id="workoutCount">0 séance</span></div>
+        <div id="workoutList"></div>
+      </div>
+    </section>
+
+    <section id="add" class="view">
+      <div class="grid">
+        <div class="card full">
+          <div class="section-title"><h2>Ajouter un exercice à une séance</h2></div>
+          <form id="exerciseForm" class="form-grid">
+            <div class="field"><label>Date</label><input id="exDate" type="date" required></div>
+            <div class="field"><label>Type de séance</label><select id="exWorkout"><option>Push</option><option>Pull</option><option>Jambes</option><option>Upper Body</option><option>Lower Body</option><option>Autre</option></select></div>
+            <div class="field"><label>Exercice</label><input id="exName" required placeholder="Développé couché"></div>
+            <div class="field"><label>Charge (kg)</label><input id="exWeight" type="number" step="0.25" required></div>
+            <div class="field full"><label>Répétitions par série</label><input id="exReps" required placeholder="10/10/8/7"></div>
+            <div class="field full"><label>Note</label><input id="exNote" placeholder="Par côté, machine différente, RIR 1..."></div>
+            <button class="btn btn-primary full" type="submit">Enregistrer l’exercice</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const initialData = {
+  weights: [],
+  workouts: [
+    {date:"2026-07-09", name:"Push", exercises:[
+      {name:"Développé couché haltères", weight:40, reps:[10,10,8], note:"Charge par haltère"},
+      {name:"Pec incliné Smith", weight:27.5, reps:[12,10], note:"Charge par côté"},
+      {name:"Extension poulie barre", weight:25, reps:[16,14,10], note:""},
+      {name:"Élévations latérales", weight:12, reps:[14,12], note:""},
+      {name:"Élévation machine", weight:30, reps:[12,10,10], note:""},
+      {name:"Abdos poulie", weight:35, reps:[20], note:""}
+    ]},
+    {date:"2026-07-10", name:"Pull", exercises:[
+      {name:"Tirage vertical", weight:75, reps:[12,12,8], note:""},
+      {name:"Tirage machine", weight:50, reps:[12,12], note:"Charge par côté"},
+      {name:"Oiseau haltères arrière d'épaule", weight:13, reps:[14,12,10], note:"13 puis 12 kg"},
+      {name:"Curl poulie", weight:25, reps:[12,10,10], note:""},
+      {name:"Abdos poulie", weight:30, reps:[], note:"Répétitions non renseignées"}
+    ]},
+    {date:"2026-07-12", name:"Jambes", exercises:[
+      {name:"Presse à jambes", weight:185, reps:[10,10,9], note:""},
+      {name:"Hip thrust", weight:140, reps:[10,10,10], note:""},
+      {name:"Leg extension", weight:95, reps:[12,11,10], note:""},
+      {name:"Leg curl allongé", weight:45, reps:[10,9,7], note:""}
+    ]},
+    {date:"2026-07-13", name:"Upper Body", exercises:[
+      {name:"Développé militaire machine", weight:50, reps:[10,10,7], note:"Charge par côté"},
+      {name:"Développé Smith machine", weight:27.5, reps:[12,11,9], note:"Charge par côté"},
+      {name:"Tirage vertical poulie", weight:75, reps:[12,10,8], note:""},
+      {name:"Tirage machine", weight:51.25, reps:[12,10,8], note:"Charge par côté"},
+      {name:"Élévations latérales poulie", weight:14, reps:[17], note:"10 puis 14 kg"},
+      {name:"Élévations latérales machine", weight:25, reps:[15], note:""}
+    ]},
+    {date:"2026-07-15", name:"Lower Body", exercises:[
+      {name:"Hip thrust", weight:140, reps:[10,10,10], note:""},
+      {name:"Presse à jambes", weight:185, reps:[9,8,9], note:""},
+      {name:"Leg extension", weight:140, reps:[11,10,9], note:"Charge à vérifier"},
+      {name:"Leg curl allongé", weight:45, reps:[10], note:""},
+      {name:"Abdos poulie", weight:35, reps:[20,17], note:""}
+    ]}
+  ]
+};
+let data = JSON.parse(localStorage.getItem("sportTrackData") || "null") || initialData;
+
+function save(){localStorage.setItem("sportTrackData", JSON.stringify(data)); renderAll();}
+function fmtDate(s){return new Date(s+"T12:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}
+function mean(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null}
+function movingAvg(index){
+  const sorted=[...data.weights].sort((a,b)=>a.date.localeCompare(b.date));
+  const cur=new Date(sorted[index].date+"T12:00:00");
+  const vals=sorted.filter(w=>{const d=new Date(w.date+"T12:00:00");return d<=cur && (cur-d)<=6*86400000}).map(w=>w.value);
+  return mean(vals);
+}
+function allExercises(){return data.workouts.flatMap(w=>w.exercises.map(e=>({...e,date:w.date,workout:w.name})))}
+function estimate1RM(e){const m=Math.max(...(e.reps.length?e.reps:[0]));return e.weight*(1+m/30)}
+
+function renderMetrics(){
+  const sorted=[...data.weights].sort((a,b)=>a.date.localeCompare(b.date));
+  const recent=sorted.slice(-7).map(w=>w.value), prev=sorted.slice(-14,-7).map(w=>w.value);
+  const a=mean(recent), p=mean(prev);
+  document.getElementById("avgWeight").textContent=a?`${a.toFixed(2)} kg`:"-";
+  document.getElementById("weightDelta").textContent=a&&p?`${a-p>=0?"+":""}${(a-p).toFixed(2)} kg vs semaine précédente`:"Ajoute au moins 7 pesées";
+  document.getElementById("sessionCount").textContent=data.workouts.length;
+  document.getElementById("setCount").textContent=allExercises().reduce((s,e)=>s+e.reps.length,0);
+  const ex=allExercises().filter(e=>e.reps.length).sort((a,b)=>estimate1RM(b)-estimate1RM(a))[0];
+  document.getElementById("bestLift").textContent=ex?ex.name:"-";
+  document.getElementById("bestLiftDetail").textContent=ex?`${ex.weight} kg × ${Math.max(...ex.reps)}`:"-";
+}
+function drawChart(){
+  const c=document.getElementById("weightChart"),ctx=c.getContext("2d"), dpr=window.devicePixelRatio||1;
+  const cssW=c.clientWidth, cssH=280;c.width=cssW*dpr;c.height=cssH*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,cssW,cssH);
+  const pts=[...data.weights].sort((a,b)=>a.date.localeCompare(b.date));
+  ctx.font="12px system-ui";ctx.fillStyle="#94a3b8";
+  if(pts.length<2){ctx.textAlign="center";ctx.fillText("Ajoute plusieurs pesées pour afficher la courbe",cssW/2,cssH/2);return}
+  const vals=pts.map(x=>x.value), min=Math.min(...vals)-.5,max=Math.max(...vals)+.5,pad=34;
+  ctx.strokeStyle="#25314f";ctx.lineWidth=1;
+  for(let i=0;i<5;i++){let y=pad+i*(cssH-2*pad)/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(cssW-pad,y);ctx.stroke()}
+  const xy=(i,v)=>[pad+i*(cssW-2*pad)/(pts.length-1), pad+(max-v)*(cssH-2*pad)/(max-min)];
+  ctx.strokeStyle="#38bdf8";ctx.lineWidth=2.5;ctx.beginPath();
+  pts.forEach((p,i)=>{const [x,y]=xy(i,p.value);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+  ctx.strokeStyle="#22c55e";ctx.beginPath();
+  pts.forEach((p,i)=>{const [x,y]=xy(i,movingAvg(i));i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+  pts.forEach((p,i)=>{const [x,y]=xy(i,p.value);ctx.fillStyle="#f8fafc";ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill()});
+}
+function renderRecent(){
+  const ex=allExercises().filter(e=>e.reps.length).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  document.getElementById("recentPrs").innerHTML=ex.length?ex.map(e=>`<div class="item"><div><strong>${e.name}</strong><div class="small">${fmtDate(e.date)} · ${e.weight} kg × ${Math.max(...e.reps)}</div></div><span class="badge">${e.workout}</span></div>`).join(""):`<div class="empty">Aucune performance</div>`;
+}
+function renderWeek(){
+  const names={Push:"Pecs, épaules, triceps",Pull:"Dos, biceps, arrière d’épaules",Jambes:"Bas du corps","Upper Body":"Haut du corps","Lower Body":"Bas du corps"};
+  document.getElementById("weekSummary").innerHTML=data.workouts.map(w=>`<div class="item"><div><strong>${fmtDate(w.date)} · ${w.name}</strong><div class="small">${names[w.name]||""} · ${w.exercises.length} exercices</div></div><span class="badge">${w.exercises.reduce((s,e)=>s+e.reps.length,0)} séries</span></div>`).join("");
+}
+function renderWeight(){
+  const sorted=[...data.weights].sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById("weightCount").textContent=`${sorted.length} entrée${sorted.length>1?"s":""}`;
+  document.getElementById("weightTable").innerHTML=sorted.length?sorted.map(w=>{
+    const asc=[...data.weights].sort((a,b)=>a.date.localeCompare(b.date));const i=asc.findIndex(x=>x.date===w.date&&x.value===w.value);const av=movingAvg(i);
+    return `<tr><td>${fmtDate(w.date)}</td><td><strong>${w.value.toFixed(1)} kg</strong></td><td>${av?av.toFixed(2)+" kg":"-"}</td><td>${w.note||"-"}</td><td><button class="btn btn-danger" onclick="deleteWeight('${w.id}')">Supprimer</button></td></tr>`
+  }).join(""):`<tr><td colspan="5" class="empty">Aucune pesée enregistrée</td></tr>`;
+}
+function renderWorkouts(){
+  const sorted=[...data.workouts].sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById("workoutCount").textContent=`${sorted.length} séance${sorted.length>1?"s":""}`;
+  document.getElementById("workoutList").innerHTML=sorted.map((w,wi)=>`<div class="card workout-card">
+    <div class="workout-head"><div><h3>${fmtDate(w.date)} · ${w.name}</h3><div class="small">${w.exercises.length} exercices</div></div></div>
+    ${w.exercises.map((e,ei)=>`<div class="exercise"><div class="exercise-top"><strong>${e.name}</strong><span class="badge">${e.weight} kg</span></div><div class="sets">${e.reps.length?e.reps.join(" / ")+" reps":"Répétitions non renseignées"}</div>${e.note?`<div class="small">${e.note}</div>`:""}</div>`).join("")}
+  </div>`).join("");
+}
+function renderAll(){renderMetrics();renderRecent();renderWeek();renderWeight();renderWorkouts();drawChart()}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.view").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.getElementById(t.dataset.view).classList.add("active");if(t.dataset.view==="dashboard")setTimeout(drawChart,50)});
+document.getElementById("weightForm").onsubmit=e=>{e.preventDefault();data.weights.push({id:crypto.randomUUID(),date:weightDate.value,value:Number(weightValue.value),note:weightNote.value.trim()});e.target.reset();weightDate.value=new Date().toISOString().slice(0,10);save()};
+document.getElementById("exerciseForm").onsubmit=e=>{e.preventDefault();let w=data.workouts.find(x=>x.date===exDate.value&&x.name===exWorkout.value);if(!w){w={date:exDate.value,name:exWorkout.value,exercises:[]};data.workouts.push(w)}w.exercises.push({name:exName.value.trim(),weight:Number(exWeight.value),reps:exReps.value.split("/").map(x=>Number(x.trim())).filter(Boolean),note:exNote.value.trim()});e.target.reset();exDate.value=new Date().toISOString().slice(0,10);save()};
+function deleteWeight(id){data.weights=data.weights.filter(w=>w.id!==id);save()}
+function exportData(){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="sporttrack-donnees.json";a.click();URL.revokeObjectURL(a.href)}
+document.getElementById("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{data=JSON.parse(r.result);save();alert("Données importées.")}catch{alert("Fichier invalide.")}};r.readAsText(f)};
+function resetData(){if(confirm("Réinitialiser toutes les données ?")){data=JSON.parse(JSON.stringify(initialData));save()}}
+weightDate.value=new Date().toISOString().slice(0,10);exDate.value=new Date().toISOString().slice(0,10);
+window.addEventListener("resize",()=>{if(document.getElementById("dashboard").classList.contains("active"))drawChart()});
+renderAll();
+</script>
+</body>
+</html>
