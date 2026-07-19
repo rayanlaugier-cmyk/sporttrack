@@ -36,6 +36,15 @@
     .empty{padding:30px;text-align:center;color:var(--muted)}
     .progress{height:8px;background:#0f172a;border-radius:999px;overflow:hidden;margin-top:8px}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
     .notice{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);padding:12px;border-radius:12px;color:#bae6fd;font-size:.88rem}
+    .report-box{display:grid;gap:12px}
+    .report-block{padding:15px;border-radius:14px;background:#0f172a;border:1px solid var(--line)}
+    .report-block h3{margin:0 0 7px;font-size:.95rem}
+    .report-block p{margin:0;color:#cbd5e1;line-height:1.55}
+    .report-status{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border-radius:999px;font-size:.76rem;font-weight:700;margin-bottom:9px}
+    .status-good{background:rgba(34,197,94,.13);color:#86efac}
+    .status-watch{background:rgba(245,158,11,.13);color:#fcd34d}
+    .status-info{background:rgba(56,189,248,.13);color:#7dd3fc}
+
     @media(max-width:850px){.metric{grid-column:span 6}.wide,.side{grid-column:1/-1}.app{padding:14px}.form-grid{grid-template-columns:1fr}}
     @media(max-width:520px){.metric{grid-column:1/-1}.grid{gap:12px}.card{padding:15px}header{align-items:flex-start;flex-direction:column}.toolbar{width:100%}.toolbar .btn{flex:1}}
   </style>
@@ -83,6 +92,13 @@
           <div class="section-title"><h2>Semaine 20</h2><span>9 au 15 juillet 2026</span></div>
           <div class="notice">Tes 5 séances fournies sont déjà intégrées. Les séries incomplètes sont conservées telles quelles.</div>
           <div id="weekSummary" class="list" style="margin-top:12px"></div>
+        </div>
+        <div class="card full">
+          <div class="section-title">
+            <h2>Compte rendu automatique</h2>
+            <span id="reportUpdatedAt">Mis à jour avec tes données</span>
+          </div>
+          <div id="automaticReport" class="report-box"></div>
         </div>
       </div>
     </section>
@@ -347,7 +363,150 @@ function renderNutrition(){
     <td><button class="btn btn-danger" onclick="deleteNutrition('${n.date}')">Supprimer</button></td>
   </tr>`).join(""):`<tr><td colspan="6" class="empty">Aucune donnée nutritionnelle</td></tr>`;
 }
-function renderAll(){renderMetrics();renderWeek();renderWeight();renderNutrition();renderWorkouts();drawChart();drawCalorieChart()}
+
+function avgLast(values,count){
+  const arr=values.slice(-count);
+  return arr.length?mean(arr):null;
+}
+function getExerciseHistory(){
+  const map={};
+  [...data.workouts].sort((a,b)=>a.date.localeCompare(b.date)).forEach(w=>{
+    w.exercises.forEach(e=>{
+      const key=normalizeExerciseName(e.name);
+      if(!key || !e.reps?.length) return;
+      if(!map[key]) map[key]=[];
+      map[key].push({...e,date:w.date,workout:w.name});
+    });
+  });
+  return map;
+}
+function renderAutomaticReport(){
+  const box=document.getElementById("automaticReport");
+  if(!box) return;
+
+  const weights=[...data.weights].sort((a,b)=>a.date.localeCompare(b.date));
+  const nutrition=[...data.nutrition].sort((a,b)=>a.date.localeCompare(b.date));
+  const goal=Number(data.calorieGoal)||2350;
+
+  const latest7Weights=weights.slice(-7).map(w=>Number(w.value));
+  const previous7Weights=weights.slice(-14,-7).map(w=>Number(w.value));
+  const currentWeightAvg=mean(latest7Weights);
+  const previousWeightAvg=mean(previous7Weights);
+  const weightChange=currentWeightAvg!==null && previousWeightAvg!==null ? currentWeightAvg-previousWeightAvg : null;
+
+  const latest7Nutrition=nutrition.slice(-7);
+  const calorieAvg=mean(latest7Nutrition.map(n=>Number(n.calories)));
+  const calorieDiff=calorieAvg!==null ? calorieAvg-goal : null;
+  const proteinAvg=mean(latest7Nutrition.map(n=>Number(n.protein)||0).filter(v=>v>0));
+
+  const history=getExerciseHistory();
+  let improved=0, stable=0, declined=0, compared=0;
+  let bestProgress=null;
+
+  Object.values(history).forEach(list=>{
+    if(list.length<2) return;
+    const prev=list[list.length-2], curr=list[list.length-1];
+    const prevTop=Math.max(...prev.reps);
+    const currTop=Math.max(...curr.reps);
+    const prevScore=prev.weight*(1+prevTop/30);
+    const currScore=curr.weight*(1+currTop/30);
+    const change=(currScore-prevScore)/prevScore*100;
+    compared++;
+    if(change>1.5) improved++;
+    else if(change<-1.5) declined++;
+    else stable++;
+    if(!bestProgress || change>bestProgress.change) bestProgress={name:curr.name,change,curr,prev};
+  });
+
+  let weightText, weightStatus="status-info", weightLabel="Données insuffisantes";
+  if(currentWeightAvg===null){
+    weightText="Ajoute tes pesées quotidiennes pour que le site puisse analyser ta tendance de poids.";
+  }else if(previousWeightAvg===null){
+    weightLabel="Première semaine enregistrée";
+    weightText=`Ton poids moyen actuel est de ${currentWeightAvg.toFixed(2)} kg. Une deuxième semaine complète permettra de comparer correctement la tendance.`;
+  }else{
+    const abs=Math.abs(weightChange);
+    if(abs<0.15){
+      weightLabel="Poids stable"; weightStatus="status-good";
+      weightText=`Ta moyenne est de ${currentWeightAvg.toFixed(2)} kg, soit ${weightChange>=0?"+":""}${weightChange.toFixed(2)} kg par rapport à la semaine précédente. La variation est faible et correspond à une stabilité globale.`;
+    }else if(weightChange>0){
+      weightLabel="Poids en hausse"; weightStatus=abs>0.5?"status-watch":"status-info";
+      weightText=`Ta moyenne est de ${currentWeightAvg.toFixed(2)} kg, en hausse de ${weightChange.toFixed(2)} kg. Une hausse rapide sur une seule semaine peut venir de l’eau, du glycogène, du sel ou du contenu digestif, pas uniquement de graisse.`;
+    }else{
+      weightLabel="Poids en baisse"; weightStatus="status-good";
+      weightText=`Ta moyenne est de ${currentWeightAvg.toFixed(2)} kg, en baisse de ${Math.abs(weightChange).toFixed(2)} kg. La tendance semble compatible avec un déficit calorique si elle se confirme sur plusieurs semaines.`;
+    }
+  }
+
+  let calorieText, calorieStatus="status-info", calorieLabel="Calories";
+  if(calorieAvg===null){
+    calorieText="Importe ou ajoute tes calories pour obtenir une comparaison avec ton objectif.";
+  }else{
+    const d=Math.round(calorieDiff);
+    if(Math.abs(d)<=75){
+      calorieLabel="Objectif bien respecté"; calorieStatus="status-good";
+      calorieText=`Tu consommes en moyenne ${Math.round(calorieAvg)} kcal, soit ${d>=0?"+":""}${d} kcal par rapport à ton objectif de ${goal} kcal. Ton apport est très proche de la cible.`;
+    }else if(d<0){
+      calorieLabel="Sous l’objectif"; calorieStatus=Math.abs(d)>250?"status-watch":"status-info";
+      calorieText=`Tu consommes en moyenne ${Math.round(calorieAvg)} kcal, soit ${Math.abs(d)} kcal sous ton objectif quotidien. Vérifie ton énergie, ta récupération et tes performances si cet écart dure.`;
+    }else{
+      calorieLabel="Au-dessus de l’objectif"; calorieStatus=Math.abs(d)>250?"status-watch":"status-info";
+      calorieText=`Tu consommes en moyenne ${Math.round(calorieAvg)} kcal, soit ${d} kcal au-dessus de ton objectif quotidien. Ce n’est pas forcément problématique si le poids et les performances évoluent comme prévu.`;
+    }
+    if(proteinAvg) calorieText += ` Tes protéines moyennes sont d’environ ${Math.round(proteinAvg)} g par jour.`;
+  }
+
+  let performanceText, performanceStatus="status-info", performanceLabel="Performances";
+  if(compared===0){
+    performanceText="Il faut au moins deux occurrences d’un même exercice pour comparer les performances.";
+  }else{
+    performanceLabel=improved>declined?"Progression positive":declined>improved?"Fatigue possible":"Performances stables";
+    performanceStatus=improved>declined?"status-good":declined>improved?"status-watch":"status-info";
+    performanceText=`Sur ${compared} exercices comparables, ${improved} progressent, ${stable} restent stables et ${declined} reculent légèrement.`;
+    if(bestProgress && bestProgress.change>1.5){
+      performanceText += ` La meilleure progression récente est sur ${bestProgress.name} (${bestProgress.change.toFixed(1)} % selon la charge et les répétitions).`;
+    }
+  }
+
+  let advice="Continue à renseigner tes données régulièrement pour obtenir une tendance plus fiable.";
+  if(currentWeightAvg!==null && calorieAvg!==null){
+    if(previousWeightAvg===null){
+      advice=`Conserve ton objectif de ${goal} kcal jusqu’à disposer d’au moins deux semaines complètes de poids moyen.`;
+    }else if(Math.abs(weightChange)<0.15 && improved>=declined){
+      advice=`Ton poids est stable et tes performances tiennent bien. Garde environ ${goal} kcal pendant encore une semaine avant de modifier quoi que ce soit.`;
+    }else if(weightChange<-0.5 && declined>improved){
+      advice="La perte de poids est rapide et plusieurs performances reculent. Une petite hausse de 100 à 150 kcal pourrait aider la récupération.";
+    }else if(weightChange>0.5 && calorieDiff>100){
+      advice="Le poids et les calories montent en même temps. Si ton objectif est de rester sec, réduis légèrement l’apport ou vérifie d’abord si la hausse vient de la rétention d’eau.";
+    }else if(weightChange<0 && improved>=declined){
+      advice="Tu perds du poids tout en maintenant ou améliorant les performances. Ne baisse pas davantage les calories pour le moment.";
+    }else if(declined>improved){
+      advice="Plusieurs performances reculent. Surveille le sommeil, la fatigue, la proximité de l’échec et envisage une séance plus légère si cela continue.";
+    }
+  }
+
+  box.innerHTML=`
+    <div class="report-block">
+      <div class="report-status ${weightStatus}">${weightLabel}</div>
+      <h3>Évolution du poids</h3><p>${weightText}</p>
+    </div>
+    <div class="report-block">
+      <div class="report-status ${calorieStatus}">${calorieLabel}</div>
+      <h3>Calories et nutrition</h3><p>${calorieText}</p>
+    </div>
+    <div class="report-block">
+      <div class="report-status ${performanceStatus}">${performanceLabel}</div>
+      <h3>Performances sportives</h3><p>${performanceText}</p>
+    </div>
+    <div class="report-block">
+      <div class="report-status status-info">Conseil actuel</div>
+      <h3>Recommandation automatique</h3><p>${advice}</p>
+    </div>`;
+
+  const updated=document.getElementById("reportUpdatedAt");
+  if(updated) updated.textContent=`Mis à jour automatiquement · ${new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`;
+}
+function renderAll(){renderMetrics();renderWeek();renderWeight();renderNutrition();renderWorkouts();renderAutomaticReport();drawChart();drawCalorieChart()}
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.view").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.getElementById(t.dataset.view).classList.add("active");if(t.dataset.view==="dashboard")setTimeout(drawChart,50)});
 document.getElementById("weightForm").onsubmit=e=>{e.preventDefault();data.weights.push({id:crypto.randomUUID(),date:weightDate.value,value:Number(weightValue.value),note:weightNote.value.trim()});e.target.reset();weightDate.value=new Date().toISOString().slice(0,10);save()};
 

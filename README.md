@@ -22,3 +22,5 @@ Ouvre `index.html` dans ton navigateur. Les données sont sauvegardées localeme
 
 - Graphique du poids avec date et poids exact pour chaque jour
 - Objectif calorique quotidien modifiable et total hebdomadaire
+
+- Compte rendu automatique en temps réel basé sur le poids, les calories et les performances
