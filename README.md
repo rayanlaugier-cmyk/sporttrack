@@ -35,3 +35,5 @@ Ouvre `index.html` dans ton navigateur. Les données sont sauvegardées localeme
 
 - Carte Objectif actuel modifiable : Reverse diet, Sèche, Maintien ou Prise de masse
 - Conseils automatiques adaptés à l’objectif sélectionné
+
+- Ajout et migration automatique des séances de la semaine 21 : Push 16/07, Pull 18/07, Jambes 19/07
