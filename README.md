@@ -17,3 +17,5 @@ Application web personnelle de suivi sportif.
 Ouvre `index.html` dans ton navigateur. Les données sont sauvegardées localement. Utilise régulièrement **Exporter** pour garder une sauvegarde JSON.
 
 - Affichage automatique de la performance précédente pendant la saisie d’un exercice
+
+- Tableau de bord simplifié : suppression des cartes séances, meilleure performance, séries et performances récentes

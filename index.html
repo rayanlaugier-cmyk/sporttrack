@@ -67,17 +67,10 @@
       <div class="grid">
         <div class="card metric"><div class="label">Poids moyen 7 jours</div><div id="avgWeight" class="value">-</div><div id="weightDelta" class="delta">Ajoute tes pesées</div></div>
         <div class="card metric"><div class="label">Calories moyennes</div><div id="avgCalories" class="value">-</div><div id="calorieDays" class="delta">Aucune donnée</div></div>
-        <div class="card metric"><div class="label">Séances enregistrées</div><div id="sessionCount" class="value">0</div><div class="delta">Semaine actuelle</div></div>
-        <div class="card metric"><div class="label">Meilleure performance</div><div id="bestLift" class="value" style="font-size:1.25rem">-</div><div id="bestLiftDetail" class="delta">-</div></div>
-        <div class="card metric"><div class="label">Séries renseignées</div><div id="setCount" class="value">0</div><div class="delta">Total enregistré</div></div>
 
-        <div class="card wide">
+        <div class="card full">
           <div class="section-title"><h2>Évolution du poids</h2><span>Moyenne mobile sur 7 jours</span></div>
           <canvas id="weightChart" width="800" height="280"></canvas>
-        </div>
-        <div class="card side">
-          <div class="section-title"><h2>Dernières performances</h2><span>Records récents</span></div>
-          <div id="recentPrs" class="list"></div>
         </div>
 
         <div class="card full">
@@ -245,11 +238,6 @@ function renderMetrics(){
   const avgCal=mean(lastNutrition.map(n=>n.calories));
   document.getElementById("avgCalories").textContent=avgCal?`${Math.round(avgCal)} kcal`:"-";
   document.getElementById("calorieDays").textContent=lastNutrition.length?`${lastNutrition.length} jour${lastNutrition.length>1?"s":""} enregistré${lastNutrition.length>1?"s":""}`:"Aucune donnée";
-  document.getElementById("sessionCount").textContent=data.workouts.length;
-  document.getElementById("setCount").textContent=allExercises().reduce((s,e)=>s+e.reps.length,0);
-  const ex=allExercises().filter(e=>e.reps.length).sort((a,b)=>estimate1RM(b)-estimate1RM(a))[0];
-  document.getElementById("bestLift").textContent=ex?ex.name:"-";
-  document.getElementById("bestLiftDetail").textContent=ex?`${ex.weight} kg × ${Math.max(...ex.reps)}`:"-";
 }
 function drawChart(){
   const c=document.getElementById("weightChart"),ctx=c.getContext("2d"), dpr=window.devicePixelRatio||1;
@@ -328,7 +316,7 @@ function renderNutrition(){
     <td><button class="btn btn-danger" onclick="deleteNutrition('${n.date}')">Supprimer</button></td>
   </tr>`).join(""):`<tr><td colspan="6" class="empty">Aucune donnée nutritionnelle</td></tr>`;
 }
-function renderAll(){renderMetrics();renderRecent();renderWeek();renderWeight();renderNutrition();renderWorkouts();drawChart();drawCalorieChart()}
+function renderAll(){renderMetrics();renderWeek();renderWeight();renderNutrition();renderWorkouts();drawChart();drawCalorieChart()}
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.view").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.getElementById(t.dataset.view).classList.add("active");if(t.dataset.view==="dashboard")setTimeout(drawChart,50)});
 document.getElementById("weightForm").onsubmit=e=>{e.preventDefault();data.weights.push({id:crypto.randomUUID(),date:weightDate.value,value:Number(weightValue.value),note:weightNote.value.trim()});e.target.reset();weightDate.value=new Date().toISOString().slice(0,10);save()};
 
