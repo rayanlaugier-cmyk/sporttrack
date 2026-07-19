@@ -24,3 +24,11 @@ Ouvre `index.html` dans ton navigateur. Les données sont sauvegardées localeme
 - Objectif calorique quotidien modifiable et total hebdomadaire
 
 - Compte rendu automatique en temps réel basé sur le poids, les calories et les performances
+
+- Ajout d’une séance complète avec suggestion de la prochaine séance
+- Chargement automatique de tous les exercices et performances de la séance précédente du même type
+
+- Création d’une séance complète en une seule fois
+- Affichage de la dernière séance et suggestion de la séance suivante
+- Chargement automatique de tous les exercices de la dernière séance du même type
+- Anciennes charges, répétitions et notes visibles sous chaque exercice

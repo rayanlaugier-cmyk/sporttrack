@@ -41,6 +41,29 @@
     .report-block h3{margin:0 0 7px;font-size:.95rem}
     .report-block p{margin:0;color:#cbd5e1;line-height:1.55}
     .report-status{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border-radius:999px;font-size:.76rem;font-weight:700;margin-bottom:9px}
+    .session-guidance{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .guidance-card{padding:15px;border-radius:14px;background:#0f172a;border:1px solid var(--line)}
+    .guidance-card strong{display:block;font-size:1.15rem;margin:5px 0}
+    .guidance-card.suggested{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.07)}
+    .session-exercise-list{display:flex;flex-direction:column;gap:13px}
+    .session-editor{padding:15px;border-radius:14px;background:#0f172a;border:1px solid var(--line)}
+    .session-editor-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+    .session-editor-grid{display:grid;grid-template-columns:2fr 1fr 2fr;gap:10px}
+    .previous-set{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.18)}
+    .previous-set strong{color:#e2e8f0}
+    @media(max-width:700px){
+      .session-guidance{grid-template-columns:1fr}
+      .session-editor-grid{grid-template-columns:1fr}
+    }
+    .session-exercise-card{background:#0f172a;border:1px solid var(--line);border-radius:15px;padding:15px}
+    .session-exercise-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+    .session-exercise-head h3{margin:0;font-size:.98rem}
+    .previous-session-box{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.18)}
+    .previous-session-box strong{color:#bae6fd}
+    .exercise-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .exercise-fields .full-row{grid-column:1/-1}
+    @media(max-width:700px){.exercise-fields{grid-template-columns:1fr}}
+
     .status-good{background:rgba(34,197,94,.13);color:#86efac}
     .status-watch{background:rgba(245,158,11,.13);color:#fcd34d}
     .status-info{background:rgba(56,189,248,.13);color:#7dd3fc}
@@ -164,21 +187,62 @@
         <div id="workoutList"></div>
       </div>
     </section>
-
     <section id="add" class="view">
       <div class="grid">
         <div class="card full">
-          <div class="section-title"><h2>Ajouter un exercice à une séance</h2></div>
-          <form id="exerciseForm" class="form-grid">
-            <div class="field"><label>Date</label><input id="exDate" type="date" required></div>
-            <div class="field"><label>Type de séance</label><select id="exWorkout"><option>Push</option><option>Pull</option><option>Jambes</option><option>Upper Body</option><option>Lower Body</option><option>Autre</option></select></div>
-            <div class="field"><label>Exercice</label><input id="exName" required placeholder="Développé couché"></div>
-            <div class="field"><label>Charge (kg)</label><input id="exWeight" type="number" step="0.25" required></div>
-            <div class="field full"><label>Répétitions par série</label><input id="exReps" required placeholder="10/10/8/7"></div>
-            <div class="field full"><div id="previousPerformance" class="notice" style="display:none"></div></div>
-            <div class="field full"><label>Note</label><input id="exNote" placeholder="Par côté, machine différente, RIR 1..."></div>
-            <button class="btn btn-primary full" type="submit">Enregistrer l’exercice</button>
-          </form>
+          <div class="section-title">
+            <h2>Ajouter une séance complète</h2>
+            <span>Programme proposé selon ton historique</span>
+          </div>
+
+          <div class="session-guidance">
+            <div class="guidance-card">
+              <div class="small">Dernière séance réalisée</div>
+              <strong id="lastSessionName">-</strong>
+              <div id="lastSessionDate" class="small">-</div>
+            </div>
+            <div class="guidance-card suggested">
+              <div class="small">Séance conseillée ensuite</div>
+              <strong id="suggestedSessionName">-</strong>
+              <div class="small">Selon l’ordre de ton programme</div>
+            </div>
+          </div>
+
+          <div class="form-grid" style="margin-top:16px">
+            <div class="field">
+              <label>Date</label>
+              <input id="sessionDate" type="date" required>
+            </div>
+            <div class="field">
+              <label>Type de séance</label>
+              <select id="sessionType">
+                <option>Push</option>
+                <option>Pull</option>
+                <option>Jambes</option>
+                <option>Upper Body</option>
+                <option>Lower Body</option>
+                <option>Autre</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="sessionReference" class="notice" style="margin-top:14px"></div>
+
+          <div class="section-title" style="margin-top:20px">
+            <h2>Exercices de la séance</h2>
+            <button class="btn btn-secondary" type="button" onclick="addSessionExercise()">+ Ajouter un exercice</button>
+          </div>
+
+          <div id="sessionExerciseList" class="session-exercise-list"></div>
+
+          <div class="field" style="margin-top:14px">
+            <label>Note générale de la séance</label>
+            <input id="sessionNote" placeholder="Fatigue, énergie, douleur, durée de la séance...">
+          </div>
+
+          <button class="btn btn-primary" style="width:100%;margin-top:14px" type="button" onclick="saveCompleteSession()">
+            Enregistrer toute la séance
+          </button>
         </div>
       </div>
     </section>
@@ -234,7 +298,10 @@ if(!Array.isArray(data.nutrition)) data.nutrition = JSON.parse(JSON.stringify(in
 if(!data.calorieGoal) data.calorieGoal = 2350;
 if(!Array.isArray(data.weights)) data.weights = [];
 
-function save(){localStorage.setItem("sportTrackData", JSON.stringify(data)); renderAll();}
+function save(){localStorage.setItem("sportTrackData", JSON.stringify(data)); document.getElementById("sessionType").addEventListener("change",loadSessionTemplate);
+document.getElementById("sessionDate").addEventListener("change",loadSessionTemplate);
+renderSessionGuidance();
+renderAll();}
 function fmtDate(s){return new Date(s+"T12:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}
 function mean(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null}
 function movingAvg(index){
@@ -506,7 +573,142 @@ function renderAutomaticReport(){
   const updated=document.getElementById("reportUpdatedAt");
   if(updated) updated.textContent=`Mis à jour automatiquement · ${new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`;
 }
-function renderAll(){renderMetrics();renderWeek();renderWeight();renderNutrition();renderWorkouts();renderAutomaticReport();drawChart();drawCalorieChart()}
+
+const workoutCycle=["Push","Pull","Jambes","Upper Body","Lower Body"];
+
+function getSortedWorkouts(){
+  return [...data.workouts].sort((a,b)=>a.date.localeCompare(b.date));
+}
+function getLastWorkout(){
+  const sorted=getSortedWorkouts();
+  return sorted.length?sorted[sorted.length-1]:null;
+}
+function getSuggestedNextWorkout(){
+  const last=getLastWorkout();
+  if(!last) return "Push";
+  const idx=workoutCycle.indexOf(last.name);
+  if(idx===-1) return "Push";
+  return workoutCycle[(idx+1)%workoutCycle.length];
+}
+function getLastWorkoutOfType(type,beforeDate){
+  const list=data.workouts
+    .filter(w=>w.name===type && (!beforeDate || w.date<beforeDate))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  return list[0]||null;
+}
+function updateWorkoutHeader(){
+  const last=getLastWorkout();
+  const suggested=getSuggestedNextWorkout();
+  const info=document.getElementById("lastWorkoutInfo");
+  const suggestion=document.getElementById("nextWorkoutSuggestion");
+  if(info) info.textContent=last?`Dernière séance : ${last.name} · ${fmtDate(last.date)}`:"Dernière séance : aucune";
+  if(suggestion){
+    suggestion.innerHTML=last
+      ? `Ta dernière séance était <strong>${last.name}</strong> le ${fmtDate(last.date)}. Selon ton cycle actuel, la prochaine séance proposée est <strong>${suggested}</strong>.`
+      : `Commence ton cycle avec une séance <strong>${suggested}</strong>.`;
+  }
+}
+function createExerciseCard(exercise,index,previousDate){
+  const reps=exercise?.reps?.length?exercise.reps.join("/"):"";
+  const prevText=exercise
+    ? `<div class="previous-session-box">
+         <strong>Séance précédente · ${fmtDate(previousDate)}</strong>
+         <div style="margin-top:4px">${exercise.weight} kg · ${exercise.reps?.length?exercise.reps.join(" / ")+" reps":"répétitions non renseignées"}</div>
+         ${exercise.note?`<div class="small" style="margin-top:4px">${exercise.note}</div>`:""}
+       </div>`
+    : `<div class="previous-session-box"><span class="small">Nouvel exercice : aucune performance précédente.</span></div>`;
+  return `<div class="session-exercise-card" data-index="${index}">
+    <div class="session-exercise-head">
+      <h3>${exercise?.name||"Nouvel exercice"}</h3>
+      <button type="button" class="btn btn-danger" style="padding:7px 10px" onclick="removeSessionExercise(${index})">Supprimer</button>
+    </div>
+    <div class="exercise-fields">
+      <div class="field full-row">
+        <label>Exercice</label>
+        <input class="session-name" value="${exercise?.name||""}" placeholder="Nom de l'exercice" required>
+      </div>
+      <div class="field">
+        <label>Charge (kg)</label>
+        <input class="session-weight" type="number" step="0.25" value="${exercise?.weight??""}" required>
+      </div>
+      <div class="field">
+        <label>Répétitions par série</label>
+        <input class="session-reps" value="${reps}" placeholder="10/10/8/7" required>
+      </div>
+      <div class="field full-row">
+        <label>Note</label>
+        <input class="session-note" value="" placeholder="RIR, charge par côté, machine différente...">
+      </div>
+    </div>
+    ${prevText}
+  </div>`;
+}
+let sessionExerciseDraft=[];
+
+function loadSessionTemplate(){
+  const type=document.getElementById("fullWorkoutType").value;
+  const date=document.getElementById("fullWorkoutDate").value;
+  const previous=getLastWorkoutOfType(type,date);
+  sessionExerciseDraft=previous
+    ? previous.exercises.map(e=>({...e,reps:[...e.reps]}))
+    : [];
+  renderSessionExerciseList(previous);
+}
+function renderSessionExerciseList(previousOverride){
+  const list=document.getElementById("sessionExerciseList");
+  if(!list) return;
+  const type=document.getElementById("fullWorkoutType").value;
+  const date=document.getElementById("fullWorkoutDate").value;
+  const previous=previousOverride===undefined?getLastWorkoutOfType(type,date):previousOverride;
+  if(!sessionExerciseDraft.length){
+    list.innerHTML=`<div class="empty">Aucune séance précédente de ce type. Ajoute tes exercices manuellement.</div>`;
+    return;
+  }
+  list.innerHTML=sessionExerciseDraft.map((e,i)=>createExerciseCard(e,i,previous?.date||date)).join("");
+}
+function addBlankExercise(){
+  sessionExerciseDraft.push({name:"",weight:"",reps:[],note:""});
+  renderSessionExerciseList();
+}
+function removeSessionExercise(index){
+  sessionExerciseDraft.splice(index,1);
+  renderSessionExerciseList();
+}
+function initializeFullWorkoutForm(){
+  const dateInput=document.getElementById("fullWorkoutDate");
+  const typeInput=document.getElementById("fullWorkoutType");
+  if(!dateInput||!typeInput) return;
+  dateInput.value=new Date().toISOString().slice(0,10);
+  typeInput.value=getSuggestedNextWorkout();
+  updateWorkoutHeader();
+  loadSessionTemplate();
+}
+document.getElementById("fullWorkoutType")?.addEventListener("change",loadSessionTemplate);
+document.getElementById("fullWorkoutDate")?.addEventListener("change",loadSessionTemplate);
+
+document.getElementById("fullWorkoutForm")?.addEventListener("submit",e=>{
+  e.preventDefault();
+  const cards=[...document.querySelectorAll(".session-exercise-card")];
+  if(!cards.length){alert("Ajoute au moins un exercice.");return;}
+  const exercises=cards.map(card=>{
+    const name=card.querySelector(".session-name").value.trim();
+    const weight=Number(card.querySelector(".session-weight").value);
+    const reps=card.querySelector(".session-reps").value.split("/").map(x=>Number(x.trim())).filter(x=>Number.isFinite(x)&&x>0);
+    const note=card.querySelector(".session-note").value.trim();
+    return {name,weight,reps,note};
+  }).filter(e=>e.name && Number.isFinite(e.weight) && e.reps.length);
+  if(!exercises.length){alert("Renseigne au moins un exercice complet.");return;}
+  const date=document.getElementById("fullWorkoutDate").value;
+  const name=document.getElementById("fullWorkoutType").value;
+  data.workouts=data.workouts.filter(w=>!(w.date===date && w.name===name));
+  data.workouts.push({date,name,exercises});
+  save();
+  alert(`Séance ${name} enregistrée avec ${exercises.length} exercices.`);
+  updateWorkoutHeader();
+  document.getElementById("fullWorkoutType").value=getSuggestedNextWorkout();
+  loadSessionTemplate();
+});
+function renderAll(){renderMetrics();renderWeek();renderWeight();renderNutrition();renderWorkouts();renderAutomaticReport();updateWorkoutHeader();drawChart();drawCalorieChart()}
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.view").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.getElementById(t.dataset.view).classList.add("active");if(t.dataset.view==="dashboard")setTimeout(drawChart,50)});
 document.getElementById("weightForm").onsubmit=e=>{e.preventDefault();data.weights.push({id:crypto.randomUUID(),date:weightDate.value,value:Number(weightValue.value),note:weightNote.value.trim()});e.target.reset();weightDate.value=new Date().toISOString().slice(0,10);save()};
 
@@ -537,13 +739,162 @@ function updatePreviousPerformance(){
     <div style="font-size:1.05rem;margin-top:5px;color:#fff">${prev.weight} kg · ${reps} reps</div>
     <div class="small" style="margin-top:4px">${prev.workout}${prev.note?" · "+prev.note:""}</div>`;
 }
-document.getElementById("exName").addEventListener("input",updatePreviousPerformance);
-document.getElementById("exDate").addEventListener("change",updatePreviousPerformance);
 
-document.getElementById("exerciseForm").onsubmit=e=>{e.preventDefault();let w=data.workouts.find(x=>x.date===exDate.value&&x.name===exWorkout.value);if(!w){w={date:exDate.value,name:exWorkout.value,exercises:[]};data.workouts.push(w)}w.exercises.push({name:exName.value.trim(),weight:Number(exWeight.value),reps:exReps.value.split("/").map(x=>Number(x.trim())).filter(Boolean),note:exNote.value.trim()});e.target.reset();exDate.value=new Date().toISOString().slice(0,10);updatePreviousPerformance();save()};
+
+data.workouts.push(w)}w.exercises.push({name:exName.value.trim(),weight:Number(exWeight.value),reps:exReps.value.split("/").map(x=>Number(x.trim())).filter(Boolean),note:exNote.value.trim()});e.target.reset();exDate.value=new Date().toISOString().slice(0,10);updatePreviousPerformance();save()};
 function deleteWeight(id){data.weights=data.weights.filter(w=>w.id!==id);save()}
 function exportData(){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="sporttrack-donnees.json";a.click();URL.revokeObjectURL(a.href)}
 document.getElementById("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{data=JSON.parse(r.result);save();alert("Données importées.")}catch{alert("Fichier invalide.")}};r.readAsText(f)};
+
+
+const workoutSequence=["Push","Pull","Jambes","Upper Body","Lower Body"];
+
+function getSortedWorkouts(){
+  return [...data.workouts].sort((a,b)=>a.date.localeCompare(b.date));
+}
+function getLastWorkout(){
+  const sorted=getSortedWorkouts();
+  return sorted.length?sorted[sorted.length-1]:null;
+}
+function getSuggestedWorkoutType(){
+  const last=getLastWorkout();
+  if(!last) return "Push";
+  const index=workoutSequence.indexOf(last.name);
+  if(index===-1) return "Push";
+  return workoutSequence[(index+1)%workoutSequence.length];
+}
+function getPreviousWorkoutOfType(type,date){
+  return [...data.workouts]
+    .filter(w=>w.name===type && (!date || w.date<date))
+    .sort((a,b)=>b.date.localeCompare(a.date))[0] || null;
+}
+function escapeHtml(value){
+  return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+function renderSessionGuidance(){
+  const last=getLastWorkout();
+  const suggested=getSuggestedWorkoutType();
+  const lastName=document.getElementById("lastSessionName");
+  if(!lastName) return;
+  lastName.textContent=last?last.name:"Aucune séance";
+  document.getElementById("lastSessionDate").textContent=last?fmtDate(last.date):"Commence par une séance Push";
+  document.getElementById("suggestedSessionName").textContent=suggested;
+  const select=document.getElementById("sessionType");
+  select.value=suggested;
+  loadSessionTemplate();
+}
+function sessionExerciseHtml(exercise={},index=0){
+  const reps=exercise.reps?.length?exercise.reps.join("/"):"";
+  const previousReps=exercise.previousReps || reps;
+  const previousWeight=exercise.previousWeight ?? exercise.weight ?? "";
+  const previousDate=exercise.previousDate || "";
+  const previousText=exercise.name
+    ? `<div class="previous-set">
+        <div class="small">Performance sur la séance précédente${previousDate?" · "+fmtDate(previousDate):""}</div>
+        <strong>${previousWeight!==""?escapeHtml(previousWeight)+" kg":"Charge non renseignée"} · ${previousReps||"répétitions non renseignées"}</strong>
+        ${exercise.previousNote?`<div class="small">${escapeHtml(exercise.previousNote)}</div>`:""}
+      </div>`
+    : "";
+  return `<div class="session-editor" data-index="${index}">
+    <div class="session-editor-head">
+      <strong>Exercice ${index+1}</strong>
+      <button class="btn btn-danger" type="button" onclick="removeSessionExercise(this)">Supprimer</button>
+    </div>
+    <div class="session-editor-grid">
+      <div class="field">
+        <label>Exercice</label>
+        <input class="session-ex-name" value="${escapeHtml(exercise.name||"")}" placeholder="Nom de l’exercice">
+      </div>
+      <div class="field">
+        <label>Charge (kg)</label>
+        <input class="session-ex-weight" type="number" step="0.25" value="${escapeHtml(exercise.weight??"")}" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Répétitions par série</label>
+        <input class="session-ex-reps" value="${escapeHtml(reps)}" placeholder="10/10/8/7">
+      </div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>Note pour cet exercice</label>
+      <input class="session-ex-note" value="${escapeHtml(exercise.note||"")}" placeholder="RIR, douleur, machine, charge par côté...">
+    </div>
+    ${previousText}
+  </div>`;
+}
+function loadSessionTemplate(){
+  const type=document.getElementById("sessionType")?.value;
+  const date=document.getElementById("sessionDate")?.value;
+  const list=document.getElementById("sessionExerciseList");
+  const ref=document.getElementById("sessionReference");
+  if(!list||!type) return;
+
+  const previous=getPreviousWorkoutOfType(type,date);
+  if(previous){
+    ref.innerHTML=`Dernière séance <strong>${escapeHtml(type)}</strong> : ${fmtDate(previous.date)}. Les exercices et performances ci-dessous ont été repris automatiquement.`;
+    const exercises=previous.exercises.map(e=>({
+      ...e,
+      previousWeight:e.weight,
+      previousReps:e.reps?.join("/")||"",
+      previousDate:previous.date,
+      previousNote:e.note||""
+    }));
+    list.innerHTML=exercises.map((e,i)=>sessionExerciseHtml(e,i)).join("");
+  }else{
+    ref.innerHTML=`Aucune ancienne séance <strong>${escapeHtml(type)}</strong> trouvée. Ajoute les exercices de cette nouvelle séance.`;
+    list.innerHTML=sessionExerciseHtml({},0);
+  }
+}
+function addSessionExercise(){
+  const list=document.getElementById("sessionExerciseList");
+  const index=list.querySelectorAll(".session-editor").length;
+  list.insertAdjacentHTML("beforeend",sessionExerciseHtml({},index));
+}
+function removeSessionExercise(button){
+  const list=document.getElementById("sessionExerciseList");
+  button.closest(".session-editor").remove();
+  if(!list.querySelector(".session-editor")) addSessionExercise();
+  [...list.querySelectorAll(".session-editor")].forEach((el,i)=>{
+    el.dataset.index=i;
+    el.querySelector(".session-editor-head strong").textContent=`Exercice ${i+1}`;
+  });
+}
+function saveCompleteSession(){
+  const date=document.getElementById("sessionDate").value;
+  const type=document.getElementById("sessionType").value;
+  if(!date){alert("Choisis une date.");return;}
+
+  const exercises=[...document.querySelectorAll("#sessionExerciseList .session-editor")].map(card=>{
+    const name=card.querySelector(".session-ex-name").value.trim();
+    const weight=Number(card.querySelector(".session-ex-weight").value);
+    const reps=card.querySelector(".session-ex-reps").value
+      .split("/")
+      .map(v=>Number(v.trim()))
+      .filter(v=>Number.isFinite(v)&&v>0);
+    const note=card.querySelector(".session-ex-note").value.trim();
+    return {name,weight:Number.isFinite(weight)?weight:0,reps,note};
+  }).filter(e=>e.name);
+
+  if(!exercises.length){alert("Ajoute au moins un exercice.");return;}
+
+  const existing=data.workouts.find(w=>w.date===date && w.name===type);
+  if(existing){
+    if(!confirm("Une séance de ce type existe déjà à cette date. La remplacer ?")) return;
+    existing.exercises=exercises;
+    existing.note=document.getElementById("sessionNote").value.trim();
+  }else{
+    data.workouts.push({
+      date,
+      name:type,
+      note:document.getElementById("sessionNote").value.trim(),
+      exercises
+    });
+  }
+
+  save();
+  alert(`Séance ${type} enregistrée avec ${exercises.length} exercices.`);
+  document.getElementById("sessionNote").value="";
+  renderSessionGuidance();
+}
 
 function parseCsvLine(line){
   const out=[];let cur="",quoted=false;
@@ -609,7 +960,7 @@ function editCalorieGoal(){
 }
 
 function resetData(){if(confirm("Réinitialiser toutes les données ?")){data=JSON.parse(JSON.stringify(initialData));save()}}
-weightDate.value=new Date().toISOString().slice(0,10);exDate.value=new Date().toISOString().slice(0,10);nutritionDate.value=new Date().toISOString().slice(0,10);
+weightDate.value=new Date().toISOString().slice(0,10);nutritionDate.value=new Date().toISOString().slice(0,10);initializeFullWorkoutForm();
 window.addEventListener("resize",()=>{if(document.getElementById("dashboard").classList.contains("active")){drawChart();drawCalorieChart()}});
 renderAll();
 </script>
