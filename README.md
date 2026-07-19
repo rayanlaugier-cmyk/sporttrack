@@ -19,3 +19,6 @@ Ouvre `index.html` dans ton navigateur. Les données sont sauvegardées localeme
 - Affichage automatique de la performance précédente pendant la saisie d’un exercice
 
 - Tableau de bord simplifié : suppression des cartes séances, meilleure performance, séries et performances récentes
+
+- Graphique du poids avec date et poids exact pour chaque jour
+- Objectif calorique quotidien modifiable et total hebdomadaire
