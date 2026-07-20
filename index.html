@@ -7,7 +7,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta name="sporttrack-build" content="1784504341" />
+  <meta name="sporttrack-build" content="1784506807" />
   <title>SportTrack - Suivi de performances</title>
   <style>
     :root{
@@ -94,6 +94,13 @@
     .auth-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
     .auth-message{min-height:22px;margin-top:12px;font-size:.85rem;color:#fca5a5}
     .user-email{font-size:.78rem;color:var(--muted);max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .draft-banner{display:none;margin-bottom:14px;padding:14px;border-radius:14px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30)}
+    .draft-banner.visible{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .draft-status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.82rem;margin-top:12px}
+    .draft-status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e}
+    .draft-status.saving .draft-status-dot{background:#f59e0b}
+    .draft-status.error .draft-status-dot{background:#ef4444}
+    .workout-timer{font-size:.82rem;color:#94a3b8}
 
     @media(max-width:850px){.metric{grid-column:span 6}.wide,.side{grid-column:1/-1}.app{padding:14px}.form-grid{grid-template-columns:1fr}}
     @media(max-width:520px){.metric{grid-column:1/-1}.grid{gap:12px}.card{padding:15px}header{align-items:flex-start;flex-direction:column}.toolbar{width:100%}.toolbar .btn{flex:1}}
@@ -137,6 +144,17 @@
   <div id="updateBanner" class="notice" style="display:none;margin-bottom:14px">
     <strong>Nouvelle version disponible.</strong>
     <button class="btn btn-primary" style="margin-left:10px;padding:7px 10px" onclick="forceRefresh()">Mettre à jour</button>
+  </div>
+
+  <div id="draftBanner" class="draft-banner">
+    <div>
+      <strong id="draftBannerTitle">Séance en cours retrouvée</strong>
+      <div id="draftBannerDetail" class="small" style="margin-top:4px"></div>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-primary" type="button" onclick="continueWorkoutDraft()">Continuer</button>
+      <button class="btn btn-danger" type="button" onclick="abandonWorkoutDraft()">Abandonner</button>
+    </div>
   </div>
 
   <nav class="tabs">
@@ -318,6 +336,12 @@
             <input id="sessionNote" placeholder="Fatigue, énergie, douleur, durée de la séance...">
           </div>
 
+          <div id="draftStatus" class="draft-status">
+            <span class="draft-status-dot"></span>
+            <span id="draftStatusText">Brouillon prêt</span>
+            <span id="workoutTimer" class="workout-timer"></span>
+          </div>
+
           <button class="btn btn-primary" style="width:100%;margin-top:14px" type="button" onclick="saveCompleteSession()">
             Enregistrer toute la séance
           </button>
@@ -378,6 +402,7 @@ if(!Array.isArray(data.nutrition)) data.nutrition = JSON.parse(JSON.stringify(in
 if(!data.calorieGoal) data.calorieGoal = 2350;
 if(!data.currentGoal) data.currentGoal = "reverse";
 if(!Array.isArray(data.weights)) data.weights = [];
+if(data.activeWorkoutDraft===undefined) data.activeWorkoutDraft=null;
 
 const SUPABASE_URL = "https://ducwcwcuzwngqzblhwko.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_OPuccONU5ovI08RYlvkwxg_sZhqQh6L";
@@ -397,7 +422,7 @@ function save(){
 }
 
 
-const SPORTTRACK_BUILD="1784504341";
+const SPORTTRACK_BUILD="1784506807";
 let lastUpdateCheck=0;
 
 function forceRefresh(){
@@ -511,9 +536,12 @@ async function loadCloudData(){
       if(!Array.isArray(data.workouts)) data.workouts=[];
       if(!data.calorieGoal) data.calorieGoal=2350;
       if(!data.currentGoal) data.currentGoal="reverse";
+      if(data.activeWorkoutDraft===undefined) data.activeWorkoutDraft=null;
       lastCloudUpdatedAt=row.updated_at||null;
       localStorage.setItem("sportTrackData",JSON.stringify(data));
       renderAll();
+      restoreActiveWorkoutDraft();
+      updateDraftBanner();
       setCloudStatus("Synchronisé","online");
     }else{
       await saveCloudData(true);
@@ -571,6 +599,8 @@ async function checkCloudForUpdates(){
       lastCloudUpdatedAt=row.updated_at;
       localStorage.setItem("sportTrackData",JSON.stringify(data));
       renderAll();
+      restoreActiveWorkoutDraft();
+      updateDraftBanner();
       setCloudStatus("Mis à jour","online");
     }
   }catch(error){console.warn(error);}
@@ -993,12 +1023,133 @@ function renderAutomaticReport(){
 
 
 function renderAll(){renderMetrics();renderWeek();renderWeight();renderNutrition();renderWorkouts();renderAutomaticReport();drawChart();drawCalorieChart()}
-document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.view").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.getElementById(t.dataset.view).classList.add("active");if(t.dataset.view==="dashboard")setTimeout(drawChart,50)});
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.view").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.getElementById(t.dataset.view).classList.add("active");if(t.dataset.view==="dashboard")setTimeout(drawChart,50);if(t.dataset.view==="add"&&data.activeWorkoutDraft)restoreActiveWorkoutDraft();});
 document.getElementById("weightForm").onsubmit=e=>{e.preventDefault();data.weights.push({id:crypto.randomUUID(),date:weightDate.value,value:Number(weightValue.value),note:weightNote.value.trim()});e.target.reset();weightDate.value=new Date().toISOString().slice(0,10);save()};
 function deleteWeight(id){data.weights=data.weights.filter(w=>w.id!==id);save()}
 function exportData(){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="sporttrack-donnees.json";a.click();URL.revokeObjectURL(a.href)}
 document.getElementById("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{data=JSON.parse(r.result);save();alert("Données importées.")}catch{alert("Fichier invalide.")}};r.readAsText(f)};
 
+
+
+let draftSaveTimer=null;
+let draftTimerInterval=null;
+let restoringWorkoutDraft=false;
+
+function setDraftStatus(text,state=""){
+  const el=document.getElementById("draftStatus");
+  const txt=document.getElementById("draftStatusText");
+  if(!el||!txt)return;
+  el.className=`draft-status ${state}`.trim();
+  txt.textContent=text;
+}
+function readCurrentWorkoutDraft(){
+  const date=document.getElementById("sessionDate")?.value||"";
+  const type=document.getElementById("sessionType")?.value||"Push";
+  const note=document.getElementById("sessionNote")?.value||"";
+  const exercises=[...document.querySelectorAll("#sessionExerciseList .session-editor")].map(card=>({
+    name:card.querySelector(".session-ex-name")?.value||"",
+    weight:card.querySelector(".session-ex-weight")?.value||"",
+    repsText:card.querySelector(".session-ex-reps")?.value||"",
+    note:card.querySelector(".session-ex-note")?.value||""
+  }));
+  const previous=data.activeWorkoutDraft;
+  return {
+    date,type,note,exercises,
+    startedAt:previous?.startedAt||new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  };
+}
+function persistWorkoutDraft(){
+  if(restoringWorkoutDraft)return;
+  data.activeWorkoutDraft=readCurrentWorkoutDraft();
+  localStorage.setItem("sportTrackData",JSON.stringify(data));
+  setDraftStatus("Sauvegarde du brouillon…","saving");
+  updateDraftBanner();
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer=setTimeout(()=>{
+    scheduleCloudSave();
+    setDraftStatus(`Brouillon sauvegardé à ${new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`);
+  },350);
+}
+function scheduleWorkoutDraftSave(){
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer=setTimeout(persistWorkoutDraft,180);
+}
+function enrichDraftExercise(exercise,previous){
+  const prev=previous?.exercises?.find(e=>normalizeExerciseName(e.name)===normalizeExerciseName(exercise.name));
+  const reps=(exercise.repsText||"").split("/").map(v=>Number(v.trim())).filter(v=>Number.isFinite(v)&&v>0);
+  return {
+    name:exercise.name||"",
+    weight:exercise.weight,
+    reps,
+    note:exercise.note||"",
+    previousWeight:prev?.weight,
+    previousReps:prev?.reps?.join("/")||"",
+    previousDate:previous?.date||"",
+    previousNote:prev?.note||""
+  };
+}
+function restoreActiveWorkoutDraft(){
+  const draft=data.activeWorkoutDraft;
+  if(!draft||!document.getElementById("sessionExerciseList"))return false;
+  restoringWorkoutDraft=true;
+  document.getElementById("sessionDate").value=draft.date||new Date().toISOString().slice(0,10);
+  document.getElementById("sessionType").value=draft.type||"Push";
+  document.getElementById("sessionNote").value=draft.note||"";
+  const previous=getPreviousWorkoutOfType(draft.type,draft.date);
+  const exercises=(draft.exercises||[]).map(e=>enrichDraftExercise(e,previous));
+  document.getElementById("sessionExerciseList").innerHTML=(exercises.length?exercises:[{}]).map((e,i)=>sessionExerciseHtml(e,i)).join("");
+  const ref=document.getElementById("sessionReference");
+  if(ref) ref.innerHTML=`Brouillon de la séance <strong>${escapeHtml(draft.type)}</strong> restauré automatiquement. Tes saisies sont conservées.`;
+  restoringWorkoutDraft=false;
+  setDraftStatus(`Brouillon restauré · dernière saisie ${new Date(draft.updatedAt||draft.startedAt).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`);
+  startWorkoutTimer();
+  return true;
+}
+function updateDraftBanner(){
+  const banner=document.getElementById("draftBanner");
+  const draft=data.activeWorkoutDraft;
+  if(!banner)return;
+  if(!draft){banner.classList.remove("visible");return;}
+  banner.classList.add("visible");
+  document.getElementById("draftBannerTitle").textContent=`Séance ${draft.type||""} en cours`;
+  const count=(draft.exercises||[]).filter(e=>e.name||e.repsText||e.weight).length;
+  document.getElementById("draftBannerDetail").textContent=`Commencée le ${new Date(draft.startedAt).toLocaleString("fr-FR")} · ${count} exercice${count>1?"s":""} renseigné${count>1?"s":""}`;
+}
+function openAddTab(){
+  document.querySelectorAll(".tab,.view").forEach(x=>x.classList.remove("active"));
+  document.querySelector('.tab[data-view="add"]')?.classList.add("active");
+  document.getElementById("add")?.classList.add("active");
+}
+function continueWorkoutDraft(){openAddTab();restoreActiveWorkoutDraft();}
+function abandonWorkoutDraft(){
+  if(!data.activeWorkoutDraft)return;
+  if(!confirm("Abandonner définitivement la séance en cours ?"))return;
+  data.activeWorkoutDraft=null;
+  localStorage.setItem("sportTrackData",JSON.stringify(data));
+  scheduleCloudSave();
+  updateDraftBanner();
+  renderSessionGuidance();
+  setDraftStatus("Brouillon abandonné");
+}
+function clearWorkoutDraft(){
+  data.activeWorkoutDraft=null;
+  localStorage.setItem("sportTrackData",JSON.stringify(data));
+  updateDraftBanner();
+  scheduleCloudSave();
+}
+function startWorkoutTimer(){
+  clearInterval(draftTimerInterval);
+  const update=()=>{
+    const el=document.getElementById("workoutTimer");
+    const started=data.activeWorkoutDraft?.startedAt;
+    if(!el||!started){if(el)el.textContent="";return;}
+    const seconds=Math.max(0,Math.floor((Date.now()-new Date(started).getTime())/1000));
+    const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60);
+    el.textContent=`· Temps écoulé ${h?`${h} h `:""}${m} min`;
+  };
+  update();draftTimerInterval=setInterval(update,30000);
+}
 
 const workoutSequence=["Push","Pull","Jambes","Upper Body","Lower Body"];
 
@@ -1101,6 +1252,7 @@ function addSessionExercise(){
   const list=document.getElementById("sessionExerciseList");
   const index=list.querySelectorAll(".session-editor").length;
   list.insertAdjacentHTML("beforeend",sessionExerciseHtml({},index));
+  scheduleWorkoutDraftSave();
 }
 function removeSessionExercise(button){
   const list=document.getElementById("sessionExerciseList");
@@ -1110,6 +1262,7 @@ function removeSessionExercise(button){
     el.dataset.index=i;
     el.querySelector(".session-editor-head strong").textContent=`Exercice ${i+1}`;
   });
+  scheduleWorkoutDraftSave();
 }
 function saveCompleteSession(){
   const date=document.getElementById("sessionDate").value;
@@ -1143,7 +1296,9 @@ function saveCompleteSession(){
     });
   }
 
+  data.activeWorkoutDraft=null;
   save();
+  updateDraftBanner();
   alert(`Séance ${type} enregistrée avec ${exercises.length} exercices.`);
   document.getElementById("sessionNote").value="";
   renderSessionGuidance();
@@ -1248,10 +1403,29 @@ const sessionDateInput=document.getElementById("sessionDate");
 const sessionTypeInput=document.getElementById("sessionType");
 if(sessionDateInput) sessionDateInput.value=new Date().toISOString().slice(0,10);
 if(sessionTypeInput){
-  sessionTypeInput.addEventListener("change",loadSessionTemplate);
-  sessionDateInput.addEventListener("change",loadSessionTemplate);
+  sessionTypeInput.addEventListener("change",()=>{
+    if(restoringWorkoutDraft)return;
+    data.activeWorkoutDraft=null;
+    loadSessionTemplate();
+    persistWorkoutDraft();
+  });
+  sessionDateInput.addEventListener("change",()=>{
+    if(restoringWorkoutDraft)return;
+    loadSessionTemplate();
+    persistWorkoutDraft();
+  });
+}
+const addSection=document.getElementById("add");
+if(addSection){
+  addSection.addEventListener("input",event=>{
+    if(event.target.matches("input,select,textarea"))scheduleWorkoutDraftSave();
+  });
 }
 renderSessionGuidance();
+restoreActiveWorkoutDraft();
+updateDraftBanner();
+window.addEventListener("pagehide",()=>{if(document.getElementById("add")?.classList.contains("active"))persistWorkoutDraft();});
+window.addEventListener("beforeunload",()=>{if(document.getElementById("add")?.classList.contains("active"))persistWorkoutDraft();});
 window.addEventListener("resize",()=>{if(document.getElementById("dashboard").classList.contains("active")){drawChart();drawCalorieChart()}});
 renderAll();
 initializeCloud();
