@@ -8,3 +8,7 @@
 - Suppression du brouillon après enregistrement définitif
 
 Remplace le fichier index.html du dépôt GitHub par celui-ci.
+
+## Test GitHub
+
+Test de connexion GitHub réussi le 20 juillet 2026.
