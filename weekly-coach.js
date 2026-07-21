@@ -1,5 +1,5 @@
 // SportTrack Weekly Coach integration
-// Generates/loads the weekly AI report after Monday 10:00 (Europe/Paris).
+// Loads/generates the weekly AI report after Monday 10:00 (Europe/Paris).
 (function(){
   let weeklyCoachReport = null;
   let weeklyCoachLoading = false;
@@ -18,52 +18,61 @@
     return ({maintain:'Maintenir',increase:'Augmenter',decrease:'Réduire',monitor:'Surveiller'})[value]||'Surveiller';
   }
 
+  function safeText(value){
+    try{return typeof escapeHtml==='function'?escapeHtml(value):String(value??'');}
+    catch{return String(value??'');}
+  }
+
   function renderWeeklyCoach(report){
     if(!report) return;
     const box=document.getElementById('automaticReport');
     if(!box) return;
-    const rec=Number(report.recommended_calories)||Number(window.data?.calorieGoal)||0;
+    const rec=Number(report.recommended_calories)||Number(data?.calorieGoal)||0;
     const confidence=Number(report.confidence)||0;
     const reeval=report.reevaluate_on ? new Date(report.reevaluate_on+'T12:00:00').toLocaleDateString('fr-FR') : '-';
+    const minimumWeeks=Math.max(1,Number(report.minimum_weeks)||1);
     box.innerHTML=`
       <div class="report-block">
         <div class="report-status status-good">Coach IA · bilan hebdomadaire</div>
         <h3>Analyse multi-semaines</h3>
-        <p>${window.escapeHtml?window.escapeHtml(report.report_text||''):report.report_text||''}</p>
+        <p>${safeText(report.report_text||'')}</p>
       </div>
       <div class="report-block">
         <div class="report-status status-info">Plan actuel</div>
         <h3>${decisionLabel(report.decision)}${rec?` · ${rec} kcal`:''}</h3>
-        <p>Durée minimale recommandée : ${Math.max(1,Number(report.minimum_weeks)||1)} semaine(s). Réévaluation prévue : ${reeval}. Confiance : ${confidence}%.</p>
+        <p>Durée minimale recommandée : ${minimumWeeks} semaine${minimumWeeks>1?'s':''}. Réévaluation prévue : ${reeval}. Confiance : ${confidence}%.</p>
       </div>`;
     const updated=document.getElementById('reportUpdatedAt');
     if(updated) updated.textContent=`Coach IA · semaine du ${new Date(report.week_start+'T12:00:00').toLocaleDateString('fr-FR')}`;
   }
 
   async function loadLatestWeeklyCoachReport(){
-    if(!window.currentUser || !window.supabaseClient) return null;
-    const {data,error}=await window.supabaseClient.from('weekly_coach_reports')
-      .select('*').eq('user_id',window.currentUser.id).order('week_start',{ascending:false}).limit(1).maybeSingle();
+    if(typeof currentUser==='undefined' || !currentUser || typeof supabaseClient==='undefined' || !supabaseClient) return null;
+    const {data:row,error}=await supabaseClient.from('weekly_coach_reports')
+      .select('*').eq('user_id',currentUser.id).order('week_start',{ascending:false}).limit(1).maybeSingle();
     if(error){ console.warn('Weekly coach load error',error); return null; }
-    weeklyCoachReport=data||null;
+    weeklyCoachReport=row||null;
     if(weeklyCoachReport) renderWeeklyCoach(weeklyCoachReport);
     return weeklyCoachReport;
   }
 
   async function generateWeeklyCoachReport(){
-    if(weeklyCoachLoading || !window.currentUser || !window.supabaseClient || !isWeeklyCoachDue()) return;
+    if(weeklyCoachLoading || typeof currentUser==='undefined' || !currentUser || typeof supabaseClient==='undefined' || !supabaseClient || !isWeeklyCoachDue()) return;
     weeklyCoachLoading=true;
+    const updated=document.getElementById('reportUpdatedAt');
     try{
-      const {data,error}=await window.supabaseClient.functions.invoke('weekly-coach-report',{body:{source:'dashboard'}});
+      if(updated) updated.textContent='Coach IA · analyse en cours…';
+      const {data:response,error}=await supabaseClient.functions.invoke('weekly-coach-report',{body:{source:'dashboard'}});
       if(error) throw error;
-      if(data?.needs_openai_key){
-        const updated=document.getElementById('reportUpdatedAt');
+      if(response?.needs_openai_key){
         if(updated) updated.textContent='Coach IA prêt · clé OpenAI requise';
         return;
       }
-      if(data?.report){ weeklyCoachReport=data.report; renderWeeklyCoach(data.report); }
-    }catch(err){ console.warn('Weekly coach generation error',err); }
-    finally{ weeklyCoachLoading=false; }
+      if(response?.report){ weeklyCoachReport=response.report; renderWeeklyCoach(response.report); }
+    }catch(err){
+      console.warn('Weekly coach generation error',err);
+      if(updated) updated.textContent='Coach IA · erreur temporaire';
+    } finally{weeklyCoachLoading=false;}
   }
 
   async function refreshWeeklyCoach(){
@@ -73,7 +82,6 @@
 
   window.refreshWeeklyCoach=refreshWeeklyCoach;
   window.renderWeeklyCoach=renderWeeklyCoach;
-  window.addEventListener('sporttrack-authenticated',refreshWeeklyCoach);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden) refreshWeeklyCoach();});
   window.addEventListener('focus',refreshWeeklyCoach);
   setTimeout(refreshWeeklyCoach,2500);
